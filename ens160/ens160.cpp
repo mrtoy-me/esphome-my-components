@@ -117,8 +117,8 @@ void ENS160Component::setup() {
     this->mark_failed();
     return; 
   }	
-	
-	if (op_mode != ENS160_STANDARD) {
+
+  if (op_mode != ENS160_STANDARD) {
     this->error_code_ = STANDARD_OPMODE_FAILED;
     this->mark_failed();
     return; 
