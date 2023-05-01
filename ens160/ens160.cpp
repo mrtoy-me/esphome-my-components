@@ -125,7 +125,6 @@ void ENS160Component::setup() {
     }
 }	 
 	   
-
 void ENS160Component::dump_config() {
   ESP_LOGCONFIG(TAG, "ENS160:");
    
@@ -137,19 +136,19 @@ void ENS160Component::dump_config() {
       ESP_LOGE(TAG, "  Incorrect Device ID");
       break;
 	  case READ_STATUS_FAILED:
-      ESP_LOGE(TAG, "  READ_STATUS_FAILED");
+      ESP_LOGE(TAG, "  Error reading Device Status");
       break;   
 	  case VALIDITY_INVALID_OUTPUT:
-       ESP_LOGE(TAG, "  VALIDITY_INVALID_OUTPUT");
+       ESP_LOGE(TAG, "  Invalid Device Status - No valid output");
        break; 
     case READ_OPMODE_FAILED:
-       ESP_LOGE(TAG, "  READ_OPMODE_FAILED");
+       ESP_LOGE(TAG, "  Error reading Operation Mode");
        break;
 	  case WRITE_OPMODE_FAILED:
-       ESP_LOGE(TAG, "  WRITE_OPMODE_FAILED");
+       ESP_LOGE(TAG, "  Error writing Operation Mode");
        break;
     case STANDARD_OPMODE_FAILED:
-       ESP_LOGE(TAG, "  STANDARD MODE failed");
+       ESP_LOGE(TAG, "   Device failed to achieve Standard Operating Mode");
        break;  
     case NONE:
        ESP_LOGV(TAG, "  Setup successful");
@@ -172,7 +171,6 @@ void ENS160Component::dump_config() {
   }
 }
 
-
 void ENS160Component::update() {
    
   uint8_t op_mode, status, data_ready;
@@ -185,7 +183,8 @@ void ENS160Component::update() {
     this->status_set_warning();
     return;
   }
-  //ESP_LOGI(TAG, "Status Register: %u", status);
+  
+  ESP_LOGV(TAG, "Status Register value: %u", status);
   
   data_ready = status & ENS160_DATA_READY_MASK; 
   this->validity_flag_ = static_cast<ValidityFlag>((status & ENS160_VALIDITY_FLAG_MASK) >> 2);
@@ -211,23 +210,11 @@ void ENS160Component::update() {
 	    }
       return;
     case INVALID_OUTPUT:
-	    ESP_LOGE(TAG, "ENS160 Status indicates No Invalid Output");
+	    ESP_LOGE(TAG, "ENS160 Invalid Status - No Invalid Output");
       this->status_set_warning();
       return;  
   }
-  /*
-  if (!this->get_temperature_conversion()) {
-	  ESP_LOGW(TAG, "ERROR WRITING temperature");
-    this->status_set_warning();
-	  return;
-  }
   
-  if (!this->get_humidity_conversion()) {
-	  ESP_LOGW(TAG, "ERROR WRITING humidity");
-    this->status_set_warning();
-	  return;
-  }
-  */
   if (!this->read_byte(ENS160_DATA_AQI,&aqi)) {
     ESP_LOGW(TAG, "Error reading AQI data register");
     this->status_set_warning();
@@ -284,7 +271,7 @@ void ENS160Component::update_compensation() {
     return;
   } 
   else {
-    ESP_LOGD(TAG, "Current external temperature: %0.2f °C", new_temperature);
+    ESP_LOGV(TAG, "Current external temperature: %0.2f °C", new_temperature);
   }
   
   if (!this->get_humidity_conversion(&compensation_humidity)) return;
@@ -296,7 +283,7 @@ void ENS160Component::update_compensation() {
     return;
   } 
   else {
-    ESP_LOGD(TAG, "Current external humidity: %0.2f %%", new_humidity);
+    ESP_LOGV(TAG, "Current external humidity: %0.2f %%", new_humidity);
   }
   
   if (std::abs(compensation_temperature - new_temperature) < 0.1f && std::abs(compensation_humidity - new_humidity) < 0.2f) {
@@ -315,7 +302,6 @@ void ENS160Component::update_compensation() {
     return;
   }
   ESP_LOGD(TAG, "Compensation values updated");
-  //ESP_LOGD(TAG, "Compensation written %u", raw_compensation);
   return; 
 }
 
@@ -329,9 +315,8 @@ bool ENS160Component::get_temperature_conversion(float* temperature) {
     this->status_set_warning();
     return false;
   }
-  //ESP_LOGW(TAG, "reading temperature %u",temperature_conversion);
   *temperature = ((float)temperature_conversion / 64.0f) - 273.15f;
-  ESP_LOGD(TAG, "Set compensation temperature: %.2f °C", *temperature);
+  ESP_LOGV(TAG, "Set compensation temperature: %.2f °C", *temperature);
   return true;
 }
 
@@ -349,7 +334,7 @@ bool ENS160Component::get_humidity_conversion(float* humidity) {
   
   //ESP_LOGW(TAG, "reading humidity %u",humidity_conversion);
   *humidity = (float)humidity_conversion / 512.0f;
-  ESP_LOGD(TAG, "Set compensation humidity: %.2f %%", *humidity);
+  ESP_LOGV(TAG, "Set compensation humidity: %.2f %%", *humidity);
   return true;
 }
 
