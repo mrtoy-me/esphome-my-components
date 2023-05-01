@@ -155,7 +155,8 @@ void ENS160Component::dump_config() {
        break;
   }
   
-  ESP_LOGCONFIG(TAG, "  Firmware:"); 
+  // to do extract and display ENS160 firmware version
+  // ESP_LOGCONFIG(TAG, "  Firmware:"); 
   LOG_I2C_DEVICE(this);
   LOG_UPDATE_INTERVAL(this);
   LOG_SENSOR("  ", "AQI:", this->aqi_sensor_);
