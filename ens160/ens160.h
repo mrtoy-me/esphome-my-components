@@ -42,10 +42,10 @@ class ENS160Component : public PollingComponent, public i2c::I2CDevice, public s
   } error_code_{NONE};
 	
   enum ValidityFlag {
-	  NORMAL_OPERATION = 0,
+    NORMAL_OPERATION = 0,
     WARMING_UP,
     INITIAL_STARTUP,
-	  INVALID_OUTPUT,
+    INVALID_OUTPUT,
   } validity_flag_;
 	
   sensor::Sensor *aqi_sensor_{nullptr};
