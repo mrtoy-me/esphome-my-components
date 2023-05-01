@@ -151,7 +151,7 @@ void ENS160Component::dump_config() {
        ESP_LOGE(TAG, "   Device failed to achieve Standard Operating Mode");
        break;  
     case NONE:
-       ESP_LOGV(TAG, "  Setup successful");
+       ESP_LOGD(TAG, "  Setup successful");
        break;
   }
   
