@@ -5,24 +5,25 @@ has been adapted and modified so it functions using the ESPHome component framew
 Calibration and ROI functions have not been implemented.<BR>
 
 The STMicroelectronic VL53L1X ultra lite API Core is
-Copyright (c) 2017, STMicroelectronics - All Rights Reserved
+Copyright (c) 2017, STMicroelectronics - All Rights Reserved.<BR>
 VL53L1 Core may be distributed under the terms of 'BSD 3-clause "New" or "Revised" License'
 
-**Copyright licences are shown in vl53l1x.cpp and licence.md files**
+**All Copyright licences are shown in vl53l1x.cpp and licence.md files**
 
 ## Usage: VL53L1X component
-Copy components files to a components directory under your homeassistant's esphome directory.<BR>
+Copy components files to a ***components*** directory under your homeassistant's esphome directory.<BR>
 The following yaml can then be used so ESPHome accesses the component files:
 ```
 external_components:
   - source: components
 ```
-The component uses the sensor's default i2C address of 0x29.<BR>
-Timing budget (measurement period) is fixed at 500ms, so update interval should be 1 second or greater.<BR> 
-YAML Configuration of ***distance_mode:*** can be either ***short*** or ***long***
-However, VL53L4CD sensor can only be short and if VL53L4CD is detected, distance mode is set to ***short***
+The component uses the sensor's default i2c address of 0x29.<BR>
+Timing budget (measurement period) is set internally at 500ms. The sensor is operating by ranging continuously every 500ms, but measurements are published at the specified update interval. The update interval should not be greater than 1 second.<BR>
 
-Two sensors must be configured ***distance:*** and ***range_status:***
+YAML Configuration of ***distance_mode:*** can be either ***short*** or ***long***.<BR>
+However, VL53L4CD sensor can only be short and if VL53L4CD is detected, distance mode is set to ***short***.<BR>
+
+Two sensors must be configured ***distance:*** and ***range_status:***<BR>
 Distance has units mm while range status gives the status code of the distance measurement.<BR>
 The following range status descriptions are a summary of explanations provided in STMicroelectronic VL53L1X ultra lite driver, UM2510 user manual.<BR>
 Range status values are as follows:<BR>

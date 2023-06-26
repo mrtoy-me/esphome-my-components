@@ -37,7 +37,7 @@ is subject to the following copyright.**
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************
 
-**Development of this ESPHome also referenced/used the VL53L1X Distance sensor library 
+**Development of this ESPHome component also referenced/used the VL53L1X Distance sensor library 
 by SparkFun Electronics which has the following copyright.**
 
 *******************************************************************************
