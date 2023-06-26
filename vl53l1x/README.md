@@ -13,10 +13,10 @@ VL53L1 Core may be distributed under the terms of 'BSD 3-clause "New" or "Revise
 ## Usage: VL53L1X component
 Copy components files to a components directory under your homeassistant's esphome directory
 The following yaml can then be used so ESPHome accesses the component files:
-
+```
 ***external_components:***
   ***- source: components***
-
+```
 The component uses the sensor's default i2C address of 0x29
 Calibration functions have not been implemented.
 Timing budget (measurement period) is fixed at 500ms, so update interval should be 1 second or greater
@@ -29,23 +29,23 @@ The following range status descriptions are a summary of explanations provided i
 Range status values are as follows:
 0 = RANGE VALID 
 
-1 = SIGMA FAIL WARNING  
+1 = SIGMA FAIL WARNING<BR> 
 (poor measurement repeatability or standard deviation)
 
-2 = SIGNAL FAIL WARNING
+2 = SIGNAL FAIL WARNING<BR> 
 (return signal is too week to return a good measurement)
 
-3 = OUT OF BOUNDS ERROR
+3 = OUT OF BOUNDS ERROR<BR> 
 (generally occurs when target is at or more than sensor maximum distance)
 
-4 = WRAP AROUND ERROR
-(occurs when the target is very reflective and the
-distance to the target is more than sensor maximum distance)
+4 = WRAP AROUND ERROR<BR> 
+(occurs when the target is very reflective and the<BR> 
+distance to the target is more than sensor maximum distance)<BR> 
 
 5 = UNDEFINED
 
-# Example YAML
-
+## Example YAML
+```
 external_components:
   - source: components
 
@@ -65,3 +65,4 @@ sensor:
     range_status:
       name: "Range Status"
     update_interval: 60s
+```
