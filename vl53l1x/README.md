@@ -8,25 +8,26 @@ The STMicroelectronic VL53L1X ultra lite API Core is
 Copyright (c) 2017, STMicroelectronics - All Rights Reserved
 VL53L1 Core may be distributed under the terms of 'BSD 3-clause "New" or "Revised" License'
 
-**Copyright notices are shown in vl53l1x.cpp and licence.md files**
+**Copyright licences are shown in vl53l1x.cpp and licence.md files**
 
 ## Usage: VL53L1X component
 Copy components files to a components directory under your homeassistant's esphome directory
 The following yaml can then be used so ESPHome accesses the component files:
 ```
-***external_components:***
-  ***- source: components***
+external_components:
+  - source: components
 ```
 The component uses the sensor's default i2C address of 0x29
 Calibration functions have not been implemented.
 Timing budget (measurement period) is fixed at 500ms, so update interval should be 1 second or greater
 YAML Configuration of ***distance_mode:*** can be either ***short*** or ***long***
-However, VL53L4CD sensor can only be short and if VL53L4CD is detected, distance mode is set to short
+However, VL53L4CD sensor can only be short and if VL53L4CD is detected, distance mode is set to ***short***
 
 Two sensors must be configured ***distance:*** and ***range_status:***
 Distance has units mm while range status gives the status code of the distance measurement
 The following range status descriptions are a summary of explanations provided in STMicroelectronic VL53L1X ultra lite driver, UM2510 user manual.
-Range status values are as follows:
+Range status values are as follows:<BR>
+
 0 = RANGE VALID 
 
 1 = SIGMA FAIL WARNING<BR> 
