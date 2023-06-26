@@ -1,7 +1,7 @@
 
 ## ESPHome component for VL53L1X and VL53L4CD
 STMicroelectronic VL53L1X ultra lite driver (STSW-IMG009), VL53L1 API Core
-has been adapted and modified so it functions using the ESPHome component framework.<BR>
+has been adapted and modified so it functions using the ESPHome component framework.
 Calibration and ROI functions have not been implemented.<BR>
 
 The STMicroelectronic VL53L1X ultra lite API Core is
@@ -18,7 +18,6 @@ external_components:
   - source: components
 ```
 The component uses the sensor's default i2C address of 0x29.<BR>
-Calibration functions have not been implemented.<BR>
 Timing budget (measurement period) is fixed at 500ms, so update interval should be 1 second or greater.<BR> 
 YAML Configuration of ***distance_mode:*** can be either ***short*** or ***long***
 However, VL53L4CD sensor can only be short and if VL53L4CD is detected, distance mode is set to ***short***

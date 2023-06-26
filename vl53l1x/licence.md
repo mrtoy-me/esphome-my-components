@@ -41,7 +41,7 @@ is subject to the following copyright.**
 by SparkFun Electronics which has the following copyright.**
 
 *******************************************************************************
-MIT License	
+MIT License<BR>
 Copyright © 2022 SparkFun Electronics<BR>
 Permission is hereby granted, free of charge, to any person obtaining a copy of this 
 software and associated documentation files (the “Software”), to deal in the Software without restriction, 
