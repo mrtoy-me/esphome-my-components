@@ -1,8 +1,8 @@
 
 ## ESPHome component for VL53L1X and VL53L4CD
 STMicroelectronic VL53L1X ultra lite driver (STSW-IMG009), VL53L1 API Core
-has been adapted and modified so it functions using the ESPHome component framework.
-Calibration and ROI functions have not been implemented.
+has been adapted and modified so it functions using the ESPHome component framework.<BR>
+Calibration and ROI functions have not been implemented.<BR>
 
 The STMicroelectronic VL53L1X ultra lite API Core is
 Copyright (c) 2017, STMicroelectronics - All Rights Reserved
@@ -11,24 +11,24 @@ VL53L1 Core may be distributed under the terms of 'BSD 3-clause "New" or "Revise
 **Copyright licences are shown in vl53l1x.cpp and licence.md files**
 
 ## Usage: VL53L1X component
-Copy components files to a components directory under your homeassistant's esphome directory
+Copy components files to a components directory under your homeassistant's esphome directory.<BR>
 The following yaml can then be used so ESPHome accesses the component files:
 ```
 external_components:
   - source: components
 ```
-The component uses the sensor's default i2C address of 0x29
-Calibration functions have not been implemented.
-Timing budget (measurement period) is fixed at 500ms, so update interval should be 1 second or greater
+The component uses the sensor's default i2C address of 0x29.<BR>
+Calibration functions have not been implemented.<BR>
+Timing budget (measurement period) is fixed at 500ms, so update interval should be 1 second or greater.<BR> 
 YAML Configuration of ***distance_mode:*** can be either ***short*** or ***long***
 However, VL53L4CD sensor can only be short and if VL53L4CD is detected, distance mode is set to ***short***
 
 Two sensors must be configured ***distance:*** and ***range_status:***
-Distance has units mm while range status gives the status code of the distance measurement
-The following range status descriptions are a summary of explanations provided in STMicroelectronic VL53L1X ultra lite driver, UM2510 user manual.
+Distance has units mm while range status gives the status code of the distance measurement.<BR>
+The following range status descriptions are a summary of explanations provided in STMicroelectronic VL53L1X ultra lite driver, UM2510 user manual.<BR>
 Range status values are as follows:<BR>
 
-0 = RANGE VALID 
+0 = RANGE VALID<BR>
 
 1 = SIGMA FAIL WARNING<BR> 
 (poor measurement repeatability or standard deviation)
@@ -43,7 +43,7 @@ Range status values are as follows:<BR>
 (occurs when the target is very reflective and the<BR> 
 distance to the target is more than sensor maximum distance)<BR> 
 
-5 = UNDEFINED
+5 = UNDEFINED<BR>
 
 ## Example YAML
 ```
