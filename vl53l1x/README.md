@@ -18,7 +18,7 @@ external_components:
   - source: components
 ```
 The component uses the sensor's default i2c address of 0x29.<BR>
-Timing budget (measurement period) is set internally at 500ms. The sensor is operating by ranging continuously every 500ms, but measurements are published at the specified update interval. The update interval should not be greater than 1 second.<BR>
+Timing budget (measurement period) is set internally at 500ms. The sensor is operating by ranging continuously every 500ms, but measurements are published at the specified update interval. The update interval should be greater than 1 second.<BR>
 
 YAML Configuration of ***distance_mode:*** can be either ***short*** or ***long***.<BR>
 However, VL53L4CD sensor can only be short and if VL53L4CD is detected, distance mode is set to ***short***.<BR>
