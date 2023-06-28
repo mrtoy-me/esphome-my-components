@@ -1,5 +1,3 @@
-# esphome-my-components
-esphome components by me
 
 ## ENS160 - ScioSense Digital Metal-Oxide Multi-Gas Sensor
 The ENS160 is a digital multi-gas sensor which allows the detection of a wide range of volatile organic compounds. It's algorithms calculate Total Volatile Organic Carbon, equivalent Carbon Dioxide and air quality index (AQI) and
@@ -11,7 +9,7 @@ was also used extensively.
 ### Usage
 
 Example configuration entry
-
+```
 	sensor:
 	  - platform: ens160
         aqi:
@@ -29,7 +27,7 @@ Example configuration entry
 	    compensation:
 	      temperature_source: "id_temperature_sensor"
 	      humidity_source: "id_humidity_sensor"
-      
+```   
       
 Configuration variables:
 eco2 (Required): The information for the CO₂eq. sensor.
