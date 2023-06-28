@@ -206,7 +206,7 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
 
 static const uint16_t INIT_TIMEOUT  = 250;  // default timing budget = 100ms, so 250ms should be more than enough time
 static const uint16_t TIMING_BUDGET = 500;  // new timing budget is maximum allowable = 500 ms
-static const uint16_t LOOP_TIME     =  50;  // loop executes every 50ms
+static const uint16_t LOOP_TIME     =  1000;  // loop executes every 50ms
 
 // Sensor Initialisation
 void VL53L1XComponent::setup() {
@@ -884,15 +884,15 @@ i2c::ErrorCode VL53L1XComponent::vl53l1x_read_register(uint16_t a_register, uint
   buffer[1] = (uint8_t)(a_register & 0xFF);
 
   //commented out loop used in driver, but does not seem to be necessary for ESP32 
-  //uint8_t maxAttempts = 5;
-	//for (uint8_t i = 0; i < maxAttempts; i++) {
-  error_code = this->write(buffer, 2, false);
-	no_error = (error_code == i2c::ERROR_OK);
-	//	if (no_error) {
-	//		ESP_LOGD(TAG, "Read register write attempts = %i",i);
-	//		break;
-	//	} 
-	//}
+  uint8_t maxAttempts = 5;
+	for (uint8_t i = 0; i < maxAttempts; i++) {
+    error_code = this->write(buffer, 2, false);
+	  no_error = (error_code == i2c::ERROR_OK);
+		if (no_error) {
+			ESP_LOGV(TAG, "Read register write attempts = %i",i);
+			break;
+		} 
+	}
 
   if (no_error) {
 		return this->read(data, len);
