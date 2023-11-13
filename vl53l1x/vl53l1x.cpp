@@ -328,20 +328,13 @@ void VL53L1XComponent::setup() {
 
 void VL53L1XComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "VL53L1X:");
-	if (this->sensor_id_ == 0xEACC) 
-			ESP_LOGI(TAG,"  Sensor ID: VL53L1X");
-		else {
-		  ESP_LOGI(TAG,"  Sensor ID: VL53L4CD");
-	    if (this->distance_mode_overriden_)
-			  ESP_LOGW(TAG,"  VL53L4CD Distance Mode overriden: must be SHORT"); 
-		}
-	
+	   
   switch (this->error_code_) {
     case COMMUNICATION_FAILED:
       ESP_LOGE(TAG, "  Sensor communication failed");
       break;
     case WRONG_CHIP_ID:
-      ESP_LOGE(TAG, "  Sensor does not have VL53L1X or VL53L4CD sensor ID!");
+      ESP_LOGE(TAG, "  Sensor does not have VL53L1X or VL53L4CD sensor ID !");
       break;
     case BOOT_TIMEOUT:
       ESP_LOGE(TAG, "  Timeout on waiting for sensor to boot");
@@ -350,12 +343,27 @@ void VL53L1XComponent::dump_config() {
       ESP_LOGE(TAG, "  Timeout on waiting for data ready");
       break;
     case NONE:
+		  // no errors so sensor must be VL53L1X or VL53L4CD
+		  if (this->sensor_id_ == 0xEACC) {
+		    ESP_LOGI(TAG,"  Found sensor: VL53L1X");
+	    }
+	    if (this->sensor_id_ == 0xEBAA) {
+		    ESP_LOGI(TAG,"  Found sensor: VL53L4CD");
+			}
+			
       ESP_LOGI(TAG, "  Setup successful");
-			if (this->distance_mode_ == SHORT) 
-	      ESP_LOGD(TAG,"  Distance Mode: SHORT");
-	    else
-	      ESP_LOGD(TAG,"  Distance Mode: LONG");
 
+      if (this->distance_mode_overriden_) {
+			  ESP_LOGW(TAG,"  VL53L4CD Distance Mode overriden: must be SHORT"); 
+			}
+			else {
+			  if (this->distance_mode_ == SHORT) {
+	        ESP_LOGD(TAG,"  Distance Mode: SHORT");
+				}
+	      else {
+	        ESP_LOGD(TAG,"  Distance Mode: LONG");
+				}
+			}
 			ESP_LOGD(TAG,"  Timing Budget: %ims",TIMING_BUDGET);
       ESP_LOGD(TAG,"  Intermediate Period: %ims",TIMING_BUDGET);
       break;
@@ -364,7 +372,7 @@ void VL53L1XComponent::dump_config() {
    LOG_UPDATE_INTERVAL(this);
 }
 
-void VL53L1XComponent::loop() {
+void VL53L1XComponent::loop() {  
 	bool is_dataready;
   // only run loop if not updating and every LOOP_TIME
 	if (this->running_update_ || ((millis() - this->last_loop_time_) < LOOP_TIME) || this->is_failed() )
@@ -844,9 +852,10 @@ bool VL53L1XComponent::get_range_status() {
 	}
 	return true;
 }
-
-i2c::ErrorCode VL53L1XComponent::vl53l1x_write_register(uint16_t a_register, const uint8_t *data, size_t len) {
-	uint8_t new_len = len+2;
+/*
+i2c::ErrorCode VL53L1XComponent::vl53l1x_write_register(uint16_t a_register, const uint8_t* data, size_t len) {
+	
+  uint8_t new_len = len+2;
   uint8_t buffer[new_len];
   buffer[0] = (uint8_t)(a_register >> 8);
   buffer[1] = (uint8_t)(a_register & 0xFF);
@@ -854,10 +863,13 @@ i2c::ErrorCode VL53L1XComponent::vl53l1x_write_register(uint16_t a_register, con
     buffer[i + 2] = data[i];
   }
   return this->write(buffer, new_len, true);
-}
+  
+  // using new esphome i2c 16bit addressing - yet to test
+  return this->write_register16(a_register, data, len, true);
+}*/
 
 bool VL53L1XComponent::vl53l1x_write_bytes(uint16_t a_register, const uint8_t *data, uint8_t len) {
-    return this->vl53l1x_write_register(a_register, data, len) == i2c::ERROR_OK;
+    return this->write_register16(a_register, data, len, true) == i2c::ERROR_OK;
 }
 
 bool VL53L1XComponent::vl53l1x_write_bytes_16(uint8_t a_register, const uint16_t *data, uint8_t len) {
@@ -865,7 +877,7 @@ bool VL53L1XComponent::vl53l1x_write_bytes_16(uint8_t a_register, const uint16_t
   std::unique_ptr<uint16_t[]> temp{new uint16_t[len]};
   for (size_t i = 0; i < len; i++)
     temp[i] = i2c::htoi2cs(data[i]);
-  return (this->vl53l1x_write_register(a_register, reinterpret_cast<const uint8_t *>(temp.get()), len * 2) == i2c::ERROR_OK);
+  return (this->write_register16(a_register, reinterpret_cast<const uint8_t *>(temp.get()), len * 2, true) == i2c::ERROR_OK);
 }
 
 bool VL53L1XComponent::vl53l1x_write_byte(uint16_t a_register, uint8_t data) {
@@ -875,9 +887,9 @@ bool VL53L1XComponent::vl53l1x_write_byte(uint16_t a_register, uint8_t data) {
 bool VL53L1XComponent::vl53l1x_write_byte_16(uint16_t a_register, uint16_t data) {
   return this->vl53l1x_write_bytes_16(a_register, &data, 1);
 }
-
+/*
 i2c::ErrorCode VL53L1XComponent::vl53l1x_read_register(uint16_t a_register, uint8_t *data, size_t len) {
-	i2c::ErrorCode error_code;
+	 i2c::ErrorCode error_code;
 	bool no_error;
   uint8_t buffer[2];
   buffer[0] = (uint8_t)(a_register >> 8);
@@ -900,18 +912,20 @@ i2c::ErrorCode VL53L1XComponent::vl53l1x_read_register(uint16_t a_register, uint
 	else {
 	  return error_code;
 	}
-}
+  
+  return this->read_register16(a_register, data, len, false);
+}*/
 
 bool VL53L1XComponent::vl53l1x_read_bytes(uint16_t a_register, uint8_t *data, uint8_t len) {
-    return this->vl53l1x_read_register(a_register, data, len) == i2c::ERROR_OK;
+    return this->read_register16(a_register, data, len, false) == i2c::ERROR_OK;
 }
 
 bool VL53L1XComponent::vl53l1x_read_byte(uint16_t a_register, uint8_t *data) {
-    return this->vl53l1x_read_register(a_register, data, 1) == i2c::ERROR_OK;
+    return this->read_register16(a_register, data, 1, false) == i2c::ERROR_OK;
 }
 
 bool VL53L1XComponent::vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len) {
-  if (this->vl53l1x_read_register(a_register, reinterpret_cast<uint8_t *>(data), len * 2) != i2c::ERROR_OK)
+  if (this->read_register16(a_register, reinterpret_cast<uint8_t *>(data), len * 2, false) != i2c::ERROR_OK)
     return false;
   for (size_t i = 0; i < len; i++)
     data[i] = i2c::i2ctohs(data[i]);
