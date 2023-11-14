@@ -323,7 +323,7 @@ void VL53L1XComponent::setup() {
 		this->error_code_ = COMMUNICATION_FAILED;
 	  this->mark_failed();
 	  return;
-  }
+  } 
 }
 
 void VL53L1XComponent::dump_config() {
@@ -368,6 +368,7 @@ void VL53L1XComponent::dump_config() {
       ESP_LOGD(TAG,"  Intermediate Period: %ims",TIMING_BUDGET);
       break;
    }
+	 ESP_LOGD(TAG,"  Above Alarm= %i", this->above_alarm_);
    LOG_I2C_DEVICE(this);
    LOG_UPDATE_INTERVAL(this);
 }
@@ -414,7 +415,19 @@ void VL53L1XComponent::update() {
 	else {
 	  ESP_LOGV(TAG, "No Range data found to publish");
 	}
-	
+	if (this->distance_ > this->above_alarm_) {
+		
+		if (!this->threshold_exceeded_binary_sensor_->state) {
+      ESP_LOGD(TAG, "Above alarm");
+	    this->threshold_exceeded_binary_sensor_->publish_state(true);
+	  }
+	}
+	else {
+		if (this->threshold_exceeded_binary_sensor_->state) {
+			ESP_LOGD(TAG, "Below alarm");
+      this->threshold_exceeded_binary_sensor_->publish_state(false);
+		}
+	}
 	this->running_update_ = false;
 }
    

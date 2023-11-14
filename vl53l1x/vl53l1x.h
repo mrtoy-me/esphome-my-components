@@ -3,6 +3,9 @@
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/i2c/i2c.h"
+#ifdef USE_BINARY_SENSOR
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#endif
 
 namespace esphome {
 namespace vl53l1x {
@@ -17,6 +20,11 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
   void set_distance_sensor(sensor::Sensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   void set_range_status_sensor(sensor::Sensor *range_status_sensor) { range_status_sensor_ = range_status_sensor; }
   void config_distance_mode(DistanceMode distance_mode ) { distance_mode_ = distance_mode; }
+  
+  #ifdef USE_BINARY_SENSOR
+    void set_above_alarm(int above_alarm) { above_alarm_ = above_alarm; }
+    SUB_BINARY_SENSOR(threshold_exceeded)
+  #endif
 
   void setup() override;
   void dump_config() override;
@@ -83,14 +91,12 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
   
 	bool vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len);
   bool vl53l1x_read_byte_16(uint16_t a_register, uint16_t *data);
-
-  i2c::ErrorCode vl53l1x_write_register(uint16_t a_register, const uint8_t *data, size_t len);
-  i2c::ErrorCode vl53l1x_read_register(uint16_t a_register, uint8_t *data, size_t len);
   
   uint32_t last_loop_time_{0};
   bool distance_mode_overriden_{false};
   bool running_update_{false};
   uint16_t sensor_id_{0};
+  uint8_t above_alarm_{0};
   
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *range_status_sensor_{nullptr};
