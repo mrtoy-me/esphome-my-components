@@ -61,6 +61,14 @@ vl53l1x:
   distance_mode: long
   update_interval: 60s
 
+binary_sensor:
+# required to avoid core dump
+  - platform: vl53l1x
+    threshold_exceeded: 
+      name: vl53l1x_mrtoy
+      id: vl53l1x_mrtoy
+    above_alarm: 1000
+
 sensor:
   - platform: vl53l1x
     i2c_id: bus_a
