@@ -57,13 +57,15 @@ i2c:
     scl: 22
     scan: true
 
+vl53l1x:
+  distance_mode: long
+  update_interval: 60s
+
 sensor:
   - platform: vl53l1x
     i2c_id: bus_a
-    distance_mode: long
     distance:
       name: "Distance"
     range_status:
       name: "Range Status"
-    update_interval: 60s
 ```
