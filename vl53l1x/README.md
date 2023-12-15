@@ -18,12 +18,12 @@ external_components:
   - source: components
 ```
 The component uses the sensor's default i2c address of 0x29.<BR>
-Timing budget (measurement period) is set internally at 500ms. The sensor is operating by ranging continuously every 500ms, but measurements are published at the specified update interval. The update interval should be greater than 1 second.<BR>
+Timing budget (measurement period) is set internally at 500ms. The sensor is operating by ranging continuously every 500ms, but measurements are published at the specified update interval. **Note:** The update interval should be greater than 1 second.<BR>
 
 YAML Configuration of ***distance_mode:*** can be either ***short*** or ***long***.<BR>
-However, VL53L4CD sensor can only be short and if VL53L4CD is detected, distance mode is set to ***short***.<BR>
+However, VL53L4CD sensor can only be short and if VL53L4CD is detected, distance mode is internall set to ***short***.<BR>
 
-Two sensors must be configured ***distance:*** and ***range_status:***<BR>
+Two sensors can be configured ***distance:*** which is required and ***range_status:*** which is optional<BR>
 Distance has units mm while range status gives the status code of the distance measurement.<BR>
 The following range status descriptions are a summary of explanations provided in STMicroelectronic VL53L1X ultra lite driver, UM2510 user manual.<BR>
 Range status values are as follows:<BR>
@@ -45,6 +45,12 @@ distance to the target is more than sensor maximum distance)<BR>
 
 5 = UNDEFINED<BR>
 
+The following binary sensors can be configured but are all optional.
+  ***range_valid:*** If configured this binary sensor will turn **ON** if range_status is VALID and **OFF** if Range Status is not VALID
+  ***above_threshold:***  If confgured ***above_distance:*** is required to specify the distance in mm **above** which the above threshold binary sensor will turn **ON** 
+  ***below_threshold:***  If confgured ***below_distance:*** is required to specify the distance in mm **below** which the below threshold binary sensor will turn **ON**
+  **Note:** if Range Status is not valid, if configured ***above_threshold:*** and ***below_threshold:*** binary sensor are set to **OFF**
+
 ## Example YAML
 ```
 external_components:
@@ -57,13 +63,26 @@ i2c:
     scl: 22
     scan: true
 
+vl53l1x:
+  distance_mode: long
+  update_interval: 60s
+
 sensor:
   - platform: vl53l1x
     i2c_id: bus_a
-    distance_mode: long
     distance:
-      name: "Distance"
+      name: Distance
     range_status:
-      name: "Range Status"
-    update_interval: 60s
+      name: Range Status
+
+binary_sensor:
+  - platform: vl53l1x
+    range_valid:
+      name: Distance Reading Valid
+    above_threshold: 
+      name: Above Threshold Alert
+      above_distance: 100
+    below_threshold: 
+      name: Below Threshold Alert
+      below_distance: 500  
 ```

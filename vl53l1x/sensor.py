@@ -2,10 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import sensor, i2c
 from esphome.const import (
-    CONF_ID,
     CONF_DISTANCE,
-    CONF_STATUS,
-    UNIT_CENTIMETER,
     UNIT_EMPTY,
     DEVICE_CLASS_DISTANCE,
     DEVICE_CLASS_EMPTY,
@@ -23,7 +20,7 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema (  
         {
             cv.GenerateID(CONF_VL53L1X_ID): cv.use_id(VL53L1XComponent),
-            cv.Optional(CONF_DISTANCE): sensor.sensor_schema(
+            cv.Required(CONF_DISTANCE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_MILLIMETER,
                 accuracy_decimals=0,
                 device_class=DEVICE_CLASS_DISTANCE,
@@ -43,9 +40,8 @@ async def to_code(config):
     hub = await cg.get_variable(config[CONF_VL53L1X_ID])
     await i2c.register_i2c_device(hub, config)
 
-    if distance_config := config.get(CONF_DISTANCE):
-        sens = await sensor.new_sensor(distance_config)    
-        cg.add(hub.set_distance_sensor(sens))
+    sens = await sensor.new_sensor(config[CONF_DISTANCE])    
+    cg.add(hub.set_distance_sensor(sens))
 
     if range_config := config.get(CONF_RANGE_STATUS):
         sens = await sensor.new_sensor(range_config)    

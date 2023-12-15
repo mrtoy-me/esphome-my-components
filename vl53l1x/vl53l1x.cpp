@@ -206,7 +206,7 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
 
 static const uint16_t INIT_TIMEOUT  = 250;  // default timing budget = 100ms, so 250ms should be more than enough time
 static const uint16_t TIMING_BUDGET = 500;  // new timing budget is maximum allowable = 500 ms
-static const uint16_t LOOP_TIME     =  50;  // loop executes every 50ms
+static const uint16_t LOOP_TIME     =  80;  // loop executes every 80ms
 
 // Sensor Initialisation
 void VL53L1XComponent::setup() {
@@ -323,7 +323,15 @@ void VL53L1XComponent::setup() {
 		this->error_code_ = COMMUNICATION_FAILED;
 	  this->mark_failed();
 	  return;
-  } 
+  }
+#ifdef USE_BINARY_SENSOR
+  if (this->range_valid_binary_sensor_)
+	  this->range_valid_binary_sensor_->publish_state(false);
+	if (this->above_threshold_binary_sensor_)
+	  this->above_threshold_binary_sensor_->publish_state(false);
+	if (this->below_threshold_binary_sensor_)
+	  this->below_threshold_binary_sensor_->publish_state(false);
+#endif
 }
 
 void VL53L1XComponent::dump_config() {
@@ -343,34 +351,45 @@ void VL53L1XComponent::dump_config() {
       ESP_LOGE(TAG, "  Timeout on waiting for data ready");
       break;
     case NONE:
+      ESP_LOGD(TAG, "  Setup successful");
+		  
 		  // no errors so sensor must be VL53L1X or VL53L4CD
 		  if (this->sensor_id_ == 0xEACC) {
-		    ESP_LOGI(TAG,"  Found sensor: VL53L1X");
+		    ESP_LOGI(TAG, "  Found sensor: VL53L1X");
 	    }
 	    if (this->sensor_id_ == 0xEBAA) {
 		    ESP_LOGI(TAG,"  Found sensor: VL53L4CD");
 			}
 			
-      ESP_LOGI(TAG, "  Setup successful");
-
       if (this->distance_mode_overriden_) {
-			  ESP_LOGW(TAG,"  VL53L4CD Distance Mode overriden: must be SHORT"); 
+			  ESP_LOGW(TAG, "  VL53L4CD Distance Mode overriden: must be SHORT"); 
 			}
 			else {
 			  if (this->distance_mode_ == SHORT) {
-	        ESP_LOGD(TAG,"  Distance Mode: SHORT");
+	        ESP_LOGCONFIG(TAG,"  Distance Mode: SHORT");
 				}
 	      else {
-	        ESP_LOGD(TAG,"  Distance Mode: LONG");
+	        ESP_LOGCONFIG(TAG, "  Distance Mode: LONG");
 				}
 			}
-			ESP_LOGD(TAG,"  Timing Budget: %ims",TIMING_BUDGET);
-      ESP_LOGD(TAG,"  Intermediate Period: %ims",TIMING_BUDGET);
+			ESP_LOGD(TAG, "  Timing Budget: %ims",TIMING_BUDGET);
+      ESP_LOGD(TAG, "  Intermediate Period: %ims",TIMING_BUDGET);
+			LOG_I2C_DEVICE(this);
+      LOG_UPDATE_INTERVAL(this);
+			LOG_SENSOR("  ", "Distance Sensor:", this->distance_sensor_);
+			LOG_SENSOR("  ", "Range Status Sensor:", this->range_status_sensor_);
+
+			if (this->range_valid_binary_sensor_) {
+				ESP_LOGCONFIG(TAG, "  Binary sensor: 'Range Valid'");
+			}
+			if (this->above_threshold_binary_sensor_) {
+				ESP_LOGCONFIG(TAG, "  Binary sensor: 'Above Threshold' @ distance > %imm", this->above_distance_);
+			}
+			if (this->below_threshold_binary_sensor_) {
+				ESP_LOGCONFIG(TAG, "  Binary sensor: 'Below Threshold' @ distance < %imm", this->below_distance_);
+			}
       break;
    }
-	 ESP_LOGD(TAG,"  Above Alarm= %i", this->above_alarm_);
-   LOG_I2C_DEVICE(this);
-   LOG_UPDATE_INTERVAL(this);
 }
 
 void VL53L1XComponent::loop() {  
@@ -403,30 +422,59 @@ void VL53L1XComponent::loop() {
 
 void VL53L1XComponent::update() {
   this->running_update_ = true;
+
 	if ((this->distance_!= 0) && (this->range_status_ != UNDEFINED)) {
-		if ((this->distance_sensor_ != nullptr) && (this->range_status_sensor_ != nullptr)) {
+		if (this->distance_sensor_ != nullptr)
       this->distance_sensor_->publish_state(this->distance_);
+		if (this->range_status_sensor_ != nullptr)
       this->range_status_sensor_->publish_state(this->range_status_);
+#ifdef USE_BINARY_SENSOR
+    if (this->range_valid_binary_sensor_) {
+		  if (this->range_status_ == RANGE_VALID) {
+			  this->range_valid_binary_sensor_->publish_state(true);
+		  }
+		  else {
+		    this->range_valid_binary_sensor_->publish_state(false);
+		  }
 	  }
-		else {
-		  ESP_LOGV(TAG, "Range data found but unable to publish");
-		}
+
+    if (this->above_threshold_binary_sensor_) {
+			if (this->range_status_ != RANGE_VALID) {
+				if (above_threshold_binary_sensor_->state) {
+			    this->above_threshold_binary_sensor_->publish_state(false);
+			    ESP_LOGD(TAG, "Range status not VALID: publish Above Threshold 'off'");
+				}
+			}
+			else {
+	      if (this->distance_ > this->above_distance_) {
+	        this->above_threshold_binary_sensor_->publish_state(true);
+	      }
+	      else {
+          this->above_threshold_binary_sensor_->publish_state(false);
+				}
+		  }
+	  }
+
+	  if (this->below_threshold_binary_sensor_) {
+			if (this->range_status_ != RANGE_VALID) {
+				if (below_threshold_binary_sensor_->state) {
+				  this->below_threshold_binary_sensor_->publish_state(false);
+			    ESP_LOGD(TAG, "Range status not VALID: publish Below Threshold 'off'");
+				}
+			}
+			else {
+	      if (this->distance_ < this->below_distance_) {
+	        this->below_threshold_binary_sensor_->publish_state(true);
+	      }
+	      else {
+          this->below_threshold_binary_sensor_->publish_state(false);
+	      }
+			}
+	  }
+#endif
 	}
 	else {
 	  ESP_LOGV(TAG, "No Range data found to publish");
-	}
-	if (this->distance_ > this->above_alarm_) {
-		
-		if (!this->threshold_exceeded_binary_sensor_->state) {
-      ESP_LOGD(TAG, "Above alarm");
-	    this->threshold_exceeded_binary_sensor_->publish_state(true);
-	  }
-	}
-	else {
-		if (this->threshold_exceeded_binary_sensor_->state) {
-			ESP_LOGD(TAG, "Below alarm");
-      this->threshold_exceeded_binary_sensor_->publish_state(false);
-		}
 	}
 	this->running_update_ = false;
 }

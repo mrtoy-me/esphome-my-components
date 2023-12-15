@@ -21,10 +21,13 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
   void set_range_status_sensor(sensor::Sensor *range_status_sensor) { range_status_sensor_ = range_status_sensor; }
   void config_distance_mode(DistanceMode distance_mode ) { distance_mode_ = distance_mode; }
   
-  #ifdef USE_BINARY_SENSOR
-    void set_above_alarm(int above_alarm) { above_alarm_ = above_alarm; }
-    SUB_BINARY_SENSOR(threshold_exceeded)
-  #endif
+#ifdef USE_BINARY_SENSOR
+  void set_above_distance(long above_distance) { above_distance_ = above_distance; }
+  void set_below_distance(long below_distance) { below_distance_ = below_distance; }
+  SUB_BINARY_SENSOR(range_valid)
+  SUB_BINARY_SENSOR(above_threshold)
+  SUB_BINARY_SENSOR(below_threshold)
+#endif
 
   void setup() override;
   void dump_config() override;
@@ -53,14 +56,6 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
     DATAREADY_TIMEOUT,
     BOOT_TIMEOUT,
   } error_code_{NONE};
-
-  /*
-  enum DistanceMode {
-    INVALID = 0,
-    SHORT = 1,
-    LONG = 2,
-  } distance_mode_{LONG};
-  */
 
   bool boot_state(uint8_t *state);
   bool clear_interrupt();
@@ -96,8 +91,10 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
   bool distance_mode_overriden_{false};
   bool running_update_{false};
   uint16_t sensor_id_{0};
-  uint8_t above_alarm_{0};
-  
+
+  uint16_t above_distance_{0};
+  uint16_t below_distance_{0};
+
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *range_status_sensor_{nullptr};
 

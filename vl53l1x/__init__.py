@@ -16,7 +16,6 @@ DISTANCE_MODES = {
     "long": DistanceMode.LONG, 
 }
 
-
 VL53L1XComponent = vl53l1x_ns.class_(
     "VL53L1XComponent", cg.PollingComponent, i2c.I2CDevice
 )
