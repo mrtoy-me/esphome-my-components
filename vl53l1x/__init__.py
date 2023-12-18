@@ -28,7 +28,7 @@ CONFIG_SCHEMA = cv.All(
                 DISTANCE_MODES, upper=False
             ),
         }
-    ).extend(cv.polling_component_schema("30s"))
+    ).extend(cv.polling_component_schema("60s"))
 )
 
 async def to_code(config):
