@@ -206,7 +206,7 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
 
 static const uint16_t INIT_TIMEOUT  = 250;  // default timing budget = 100ms, so 250ms should be more than enough time
 static const uint16_t TIMING_BUDGET = 500;  // new timing budget is maximum allowable = 500 ms
-static const uint16_t LOOP_TIME     =  80;  // loop executes every 80ms
+static const uint16_t LOOP_TIME     =  90;  // loop executes every 90ms
 
 // Sensor Initialisation
 void VL53L1XComponent::setup() {
@@ -851,7 +851,6 @@ bool VL53L1XComponent::boot_state(uint8_t *state) {
 	return true;
 }
 
-
 bool VL53L1XComponent::check_sensor_id() {
   if (!this->vl53l1x_read_byte_16(VL53L1_IDENTIFICATION__MODEL_ID, &this->sensor_id_)) {
 		ESP_LOGW(TAG, "Error reading Device ID");
@@ -878,7 +877,7 @@ bool VL53L1XComponent::get_distance(uint16_t *distance) {
 }
 
 
-// numeric range status codes do not entirely follow the ST API values 
+// numeric range status codes do not follow the ST API values 
 // enum RangeStatus (vl53l1x.h) defines the numeric range status codes and are named accordingly
 
 bool VL53L1XComponent::get_range_status() {
@@ -913,21 +912,6 @@ bool VL53L1XComponent::get_range_status() {
 	}
 	return true;
 }
-/*
-i2c::ErrorCode VL53L1XComponent::vl53l1x_write_register(uint16_t a_register, const uint8_t* data, size_t len) {
-	
-  uint8_t new_len = len+2;
-  uint8_t buffer[new_len];
-  buffer[0] = (uint8_t)(a_register >> 8);
-  buffer[1] = (uint8_t)(a_register & 0xFF);
-  for (uint8_t i = 0; i < len; i++) {
-    buffer[i + 2] = data[i];
-  }
-  return this->write(buffer, new_len, true);
-  
-  // using new esphome i2c 16bit addressing - yet to test
-  return this->write_register16(a_register, data, len, true);
-}*/
 
 bool VL53L1XComponent::vl53l1x_write_bytes(uint16_t a_register, const uint8_t *data, uint8_t len) {
     return this->write_register16(a_register, data, len, true) == i2c::ERROR_OK;
@@ -948,34 +932,6 @@ bool VL53L1XComponent::vl53l1x_write_byte(uint16_t a_register, uint8_t data) {
 bool VL53L1XComponent::vl53l1x_write_byte_16(uint16_t a_register, uint16_t data) {
   return this->vl53l1x_write_bytes_16(a_register, &data, 1);
 }
-/*
-i2c::ErrorCode VL53L1XComponent::vl53l1x_read_register(uint16_t a_register, uint8_t *data, size_t len) {
-	 i2c::ErrorCode error_code;
-	bool no_error;
-  uint8_t buffer[2];
-  buffer[0] = (uint8_t)(a_register >> 8);
-  buffer[1] = (uint8_t)(a_register & 0xFF);
-
-  //commented out loop used in driver, but does not seem to be necessary for ESP32 
-  uint8_t maxAttempts = 5;
-	for (uint8_t i = 0; i < maxAttempts; i++) {
-    error_code = this->write(buffer, 2, false);
-	  no_error = (error_code == i2c::ERROR_OK);
-		if (no_error) {
-			//ESP_LOGV(TAG, "Read register write attempts = %i",i);
-			break;
-		} 
-	}
-
-  if (no_error) {
-		return this->read(data, len);
-	}
-	else {
-	  return error_code;
-	}
-  
-  return this->read_register16(a_register, data, len, false);
-}*/
 
 bool VL53L1XComponent::vl53l1x_read_bytes(uint16_t a_register, uint8_t *data, uint8_t len) {
     return this->read_register16(a_register, data, len, false) == i2c::ERROR_OK;
@@ -996,7 +952,6 @@ bool VL53L1XComponent::vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data
 bool VL53L1XComponent::vl53l1x_read_byte_16(uint16_t a_register, uint16_t *data) {
 	return this->vl53l1x_read_bytes_16(a_register, data, 1);
 }
-
 
 float VL53L1XComponent::get_setup_priority() const { return setup_priority::DATA; }
 

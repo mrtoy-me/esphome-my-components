@@ -59,13 +59,13 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
 
   bool boot_state(uint8_t *state);
   bool clear_interrupt();
-	bool get_interrupt_polarity(uint8_t *interrupt_polarity);
-	bool start_ranging();
-	bool start_oneshot_ranging();
-	bool stop_ranging();
+  bool get_interrupt_polarity(uint8_t *interrupt_polarity);
+  bool start_ranging();
+  bool start_oneshot_ranging();
+  bool stop_ranging();
   bool check_for_dataready(bool *is_dataready);
-	bool check_sensor_id();
-	bool get_distance(uint16_t *distance);
+  bool check_sensor_id();
+  bool get_distance(uint16_t *distance);
   bool get_range_status();
 
   bool get_timing_budget(uint16_t *timing_budget_ms);
@@ -81,11 +81,11 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
   bool vl53l1x_write_bytes_16(uint8_t a_register, const uint16_t *data, uint8_t len);
   bool vl53l1x_write_byte_16(uint16_t a_register, uint16_t data);
 
-	bool vl53l1x_read_byte(uint16_t a_register, uint8_t *data); 
-	bool vl53l1x_read_bytes(uint16_t a_register, uint8_t *data, uint8_t len);
-  
-	bool vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len);
+  bool vl53l1x_read_byte(uint16_t a_register, uint8_t *data); 
+  bool vl53l1x_read_bytes(uint16_t a_register, uint8_t *data, uint8_t len);
+
   bool vl53l1x_read_byte_16(uint16_t a_register, uint16_t *data);
+  bool vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len);
   
   uint32_t last_loop_time_{0};
   bool distance_mode_overriden_{false};
