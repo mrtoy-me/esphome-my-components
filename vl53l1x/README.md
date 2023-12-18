@@ -49,7 +49,7 @@ distance to the target is more than sensor maximum distance)<BR>
 Three optional binary sensors can be configured as follows:<BR>
   ***range_valid:*** If configured this binary sensor will turn **ON** if range_status is VALID and **OFF** if Range Status is not VALID<BR>
   ***above_threshold:***  If configured ***above_distance:*** is required to specify the distance in mm **above** which the binary sensor will turn **ON**<BR>
-  ***below_threshold:***  If confgured ***below_distance:*** is required to specify the distance in mm **below** which the binary sensor will turn **ON**<BR>
+  ***below_threshold:***  If configured ***below_distance:*** is required to specify the distance in mm **below** which the binary sensor will turn **ON**<BR>
   **Note: if Range Status is not valid, ***above_threshold:*** and ***below_threshold:*** binary sensors are set to OFF.**
 
 ## Example YAML
