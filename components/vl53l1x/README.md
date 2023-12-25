@@ -11,11 +11,14 @@ VL53L1 Core may be distributed under the terms of 'BSD 3-clause "New" or "Revise
 **All Copyright licences are shown in vl53l1x.cpp and licence.md files**
 
 ## Usage: VL53L1X component
-Copy components files to a ***components*** directory under your homeassistant's esphome directory.<BR>
-The following yaml can then be used so ESPHome accesses the component files:
+The following yaml can be used so ESPHome accesses the component files:
 ```
 external_components:
-  - source: components
+  source:
+    type: git
+    url: https://github.com/mrtoy-me/esphome-my-components
+    ref: main
+  components: [ vl53l1x ]
 ```
 The component supports VL53L1X (up to 4000mm range) and VL53L4CD (up to 1300mm range) with default i2c address of 0x29.<BR>
 Timing budget (measurement period) is set internally at 500ms. Ranging occurs continuously every 500ms, but measurements are published at the specified update interval. **Note: update interval should be greater than 1 second.**<BR>
@@ -55,7 +58,11 @@ Three optional binary sensors can be configured as follows:<BR>
 ## Example YAML
 ```
 external_components:
-  - source: components
+  source:
+    type: git
+    url: https://github.com/mrtoy-me/esphome-my-components
+    ref: main
+  components: [ vl53l1x ]
 
 #example configure I2C
 i2c:
