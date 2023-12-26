@@ -12,7 +12,7 @@ VL53L1 Core may be distributed under the terms of 'BSD 3-clause "New" or "Revise
 
 ## Usage: VL53L1X component
 The following yaml can be used so ESPHome accesses the component files:
-
+```
 external_components:
   source:
     type: git
