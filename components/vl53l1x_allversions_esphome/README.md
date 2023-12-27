@@ -13,8 +13,8 @@ VL53L1 Core may be distributed under the terms of 'BSD 3-clause "New" or "Revise
 ## NOTE: This component should function on all Esphome versions 2023 onwards. 
 
 ## Usage: VL53L1X component
-Copy files in "vl53l1x_allversion_esphome" directory into a "Vl53l1x" subdirectory under a "components" directory<BR>
-under the esphome addon directory (of your homeassistant)<BR>
+Copy files in "vl53l1x_allversion_esphome" directory into a "vl53l1x" subdirectory under a "components" directory<BR>
+under the "esphome" addon directory (of your homeassistant install)<BR>
 For example:
 ```
 esphome
