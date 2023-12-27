@@ -10,17 +10,21 @@ VL53L1 Core may be distributed under the terms of 'BSD 3-clause "New" or "Revise
 
 **All Copyright licences are shown in vl53l1x.cpp and licence.md files**
 
-## NOTE: This component requires Esphome version 2023.7.1 or later
+## NOTE: This component should function on all Esphome versions 2023 onwards. 
 
 ## Usage: VL53L1X component
-The following yaml can be used so ESPHome accesses the component files:
+Copy files in "vl53l1x_allversion_esphome" directory into a "Vl53l1x" subdirectory under a "components" directory<BR>
+under the esphome addon directory (of your homeassistant)<BR>
+For example:
+```
+esphome
+├── components
+   ├── vl53l1x
+```
+The following yaml can then be used to access the component:
 ```
 external_components:
-  source:
-    type: git
-    url: https://github.com/mrtoy-me/esphome-my-components
-    ref: main
-  components: [ vl53l1x ]
+  - source: components
 ```
 The component supports VL53L1X (up to 4000mm range) and VL53L4CD (up to 1300mm range) with default i2c address of 0x29.<BR>
 Timing budget (measurement period) is set internally at 500ms. Ranging occurs continuously every 500ms, but measurements are published at the specified update interval. **Note: update interval should be greater than 1 second.**<BR>
@@ -60,11 +64,7 @@ Three optional binary sensors can be configured as follows:<BR>
 ## Example YAML
 ```
 external_components:
-  source:
-    type: git
-    url: https://github.com/mrtoy-me/esphome-my-components
-    ref: main
-  components: [ vl53l1x ]
+  - source: components
 
 #example configure I2C
 i2c:
