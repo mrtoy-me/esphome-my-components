@@ -68,8 +68,8 @@ namespace esphome {
 namespace vl53l1x {
 static const char *const TAG = "vl53l1x.sensor";
 
-static const uint16_t SOFT_RESET											                                    = 0x0000;
-static const uint16_t VL53L1_I2C_SLAVE__DEVICE_ADDRESS					                          = 0x0001;
+static const uint16_t SOFT_RESET                                                          = 0x0000;
+static const uint16_t VL53L1_I2C_SLAVE__DEVICE_ADDRESS                                    = 0x0001;
 static const uint16_t VL53L1_VHV_CONFIG__TIMEOUT_MACROP_LOOP_BOUND                        = 0x0008;
 static const uint16_t ALGO__CROSSTALK_COMPENSATION_PLANE_OFFSET_KCPS 		                  = 0x0016;
 static const uint16_t ALGO__CROSSTALK_COMPENSATION_X_PLANE_GRADIENT_KCPS 	                = 0x0018;
