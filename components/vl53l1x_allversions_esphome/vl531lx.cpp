@@ -351,7 +351,7 @@ void VL53L1XComponent::dump_config() {
       ESP_LOGE(TAG, "  Timeout on waiting for data ready");
       break;
     case NONE:
-      ESP_LOGD(TAG, "  Setup successful");
+      ESP_LOGD(TAG, "  Setup successful - all versions");
 		  
 		  // no errors so sensor must be VL53L1X or VL53L4CD
 		  if (this->sensor_id_ == 0xEACC) {
