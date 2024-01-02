@@ -379,6 +379,7 @@ void VL53L1XComponent::dump_config() {
       LOG_SENSOR("  ", "Distance Sensor:", this->distance_sensor_);
       LOG_SENSOR("  ", "Range Status Sensor:", this->range_status_sensor_);
 
+#ifdef USE_BINARY_SENSOR
       if (this->range_valid_binary_sensor_) {
         ESP_LOGCONFIG(TAG, "  Binary sensor: 'Range Valid'");
       }
@@ -388,6 +389,7 @@ void VL53L1XComponent::dump_config() {
       if (this->below_threshold_binary_sensor_) {
         ESP_LOGCONFIG(TAG, "  Binary sensor: 'Below Threshold' @ distance < %imm", this->below_distance_);
       }
+#endif      
       break;
    }
 }
