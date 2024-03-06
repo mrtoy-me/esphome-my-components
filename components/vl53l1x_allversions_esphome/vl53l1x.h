@@ -1,7 +1,9 @@
 #pragma once
 
 #include "esphome/core/component.h"
+#ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
+#endif
 #include "esphome/components/i2c/i2c.h"
 #ifdef USE_BINARY_SENSOR
 #include "esphome/components/binary_sensor/binary_sensor.h"
@@ -17,10 +19,13 @@ enum DistanceMode {
 
 class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public sensor::Sensor {
  public:
+
+#ifdef USE_SENSOR 
   void set_distance_sensor(sensor::Sensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   void set_range_status_sensor(sensor::Sensor *range_status_sensor) { range_status_sensor_ = range_status_sensor; }
   void config_distance_mode(DistanceMode distance_mode ) { distance_mode_ = distance_mode; }
-  
+#endif
+
 #ifdef USE_BINARY_SENSOR
   void set_above_distance(long above_distance) { above_distance_ = above_distance; }
   void set_below_distance(long below_distance) { below_distance_ = below_distance; }
@@ -97,10 +102,11 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
 
   uint16_t above_distance_{0};
   uint16_t below_distance_{0};
-
+  
+#ifdef USE_SENSOR
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *range_status_sensor_{nullptr};
-
+#endif
 };
 
 }  // namespace vl53l1x

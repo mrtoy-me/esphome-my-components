@@ -376,8 +376,11 @@ void VL53L1XComponent::dump_config() {
       ESP_LOGD(TAG, "  Intermediate Period: %ims",TIMING_BUDGET);
       LOG_I2C_DEVICE(this);
       LOG_UPDATE_INTERVAL(this);
+
+#ifdef USE_SENSOR      
       LOG_SENSOR("  ", "Distance Sensor:", this->distance_sensor_);
       LOG_SENSOR("  ", "Range Status Sensor:", this->range_status_sensor_);
+#endif
 
 #ifdef USE_BINARY_SENSOR
       if (this->range_valid_binary_sensor_) {
@@ -424,60 +427,63 @@ void VL53L1XComponent::loop() {
 
 void VL53L1XComponent::update() {
   this->running_update_ = true;
-
-  if ((this->distance_!= 0) && (this->range_status_ != UNDEFINED)) {
-    if (this->distance_sensor_ != nullptr)
-      this->distance_sensor_->publish_state(this->distance_);
-    if (this->range_status_sensor_ != nullptr)
-      this->range_status_sensor_->publish_state(this->range_status_);
-#ifdef USE_BINARY_SENSOR
-    if (this->range_valid_binary_sensor_) {
-      if (this->range_status_ == RANGE_VALID) {
-        this->range_valid_binary_sensor_->publish_state(true);
-      }
-      else {
-        this->range_valid_binary_sensor_->publish_state(false);
-      }
-    }
-
-    if (this->above_threshold_binary_sensor_) {
-      if (this->range_status_ != RANGE_VALID) {
-        if (above_threshold_binary_sensor_->state) {
-          this->above_threshold_binary_sensor_->publish_state(false);
-          ESP_LOGD(TAG, "Range status not VALID: publish Above Threshold 'off'");
-        }
-      }
-      else {
-        if (this->distance_ > this->above_distance_) {
-          this->above_threshold_binary_sensor_->publish_state(true);
-        }
-        else {
-          this->above_threshold_binary_sensor_->publish_state(false);
-        }
-      }
-    }
-
-    if (this->below_threshold_binary_sensor_) {
-      if (this->range_status_ != RANGE_VALID) {
-        if (below_threshold_binary_sensor_->state) {
-          this->below_threshold_binary_sensor_->publish_state(false);
-          ESP_LOGD(TAG, "Range status not VALID: publish Below Threshold 'off'");
-        }
-      }
-      else {
-        if (this->distance_ < this->below_distance_) {
-          this->below_threshold_binary_sensor_->publish_state(true);
-        }
-        else {
-          this->below_threshold_binary_sensor_->publish_state(false);
-        }
-      }
-    }
+  if ((this->distance_== 0) || (this->range_status_ == UNDEFINED)) {
+    ESP_LOGV(TAG, "No Range data yet !");
+    this->running_update_ = false;
+    return;
+  }
+#ifdef USE_SENSOR
+  if (this->distance_sensor_ != nullptr)
+    this->distance_sensor_->publish_state(this->distance_);
+  if (this->range_status_sensor_ != nullptr)
+    this->range_status_sensor_->publish_state(this->range_status_);
 #endif
+
+#ifdef USE_BINARY_SENSOR
+  if (this->range_valid_binary_sensor_) {
+    if (this->range_status_ == RANGE_VALID) {
+       this->range_valid_binary_sensor_->publish_state(true);
+    }
+     else {
+      this->range_valid_binary_sensor_->publish_state(false);
+    }
+  }
+
+  if (this->above_threshold_binary_sensor_) {
+    if (this->range_status_ != RANGE_VALID) {
+      if (above_threshold_binary_sensor_->state) {
+        this->above_threshold_binary_sensor_->publish_state(false);
+        ESP_LOGD(TAG, "Range status not VALID: publish Above Threshold 'off'");
+      }
+    }
   }
   else {
-    ESP_LOGV(TAG, "No Range data found to publish");
+    if (this->distance_ > this->above_distance_) {
+      this->above_threshold_binary_sensor_->publish_state(true);
+    }
+    else {
+      this->above_threshold_binary_sensor_->publish_state(false);
+    }
   }
+
+  if (this->below_threshold_binary_sensor_) {
+    if (this->range_status_ != RANGE_VALID) {
+      if (below_threshold_binary_sensor_->state) {
+        this->below_threshold_binary_sensor_->publish_state(false);
+        ESP_LOGD(TAG, "Range status not VALID: publish Below Threshold 'off'");
+      }
+    }
+    else {
+      if (this->distance_ < this->below_distance_) {
+        this->below_threshold_binary_sensor_->publish_state(true);
+      }
+      else {
+        this->below_threshold_binary_sensor_->publish_state(false);
+      }
+    }
+  }
+#endif
+
   this->running_update_ = false;
 }
 
