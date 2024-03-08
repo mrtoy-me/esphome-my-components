@@ -366,7 +366,6 @@ void VL53L1XComponent::dump_config() {
       break;
     case DISTANCE_MODE_FAILED:
       ESP_LOGE(TAG, "  Distance Mode communication error");
-      ESP_LOGE(TAG, "  Distance Mode: %i", (uint8_t)this->distance_mode_);
       break;
     case NONE:
       ESP_LOGD(TAG, "  Setup successful - all versions");
@@ -392,15 +391,16 @@ void VL53L1XComponent::dump_config() {
       }
       ESP_LOGD(TAG, "  Timing Budget: %ims",TIMING_BUDGET);
       ESP_LOGD(TAG, "  Intermediate Period: %ims",TIMING_BUDGET);
-      ESP_LOGE(TAG, "  Distance Mode: %i", (uint8_t)this->distance_mode_);
       
       LOG_I2C_DEVICE(this);
       LOG_UPDATE_INTERVAL(this);
 
-      
-      LOG_SENSOR("  ", "Distance Sensor:", this->distance_sensor_);
-      LOG_SENSOR("  ", "Range Status Sensor:", this->range_status_sensor_);
-  
+      if (this->distance_sensor_ != nullptr) {
+        LOG_SENSOR("  ", "Distance Sensor:", this->distance_sensor_);
+      }
+      if (this->range_status_sensor_ != nullptr) {
+        LOG_SENSOR("  ", "Range Status Sensor:", this->range_status_sensor_);
+      }
       break;
    }
 }
