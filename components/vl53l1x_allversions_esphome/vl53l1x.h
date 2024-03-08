@@ -1,13 +1,8 @@
 #pragma once
 
 #include "esphome/core/component.h"
-#ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
-#endif
 #include "esphome/components/i2c/i2c.h"
-#ifdef USE_BINARY_SENSOR
-#include "esphome/components/binary_sensor/binary_sensor.h"
-#endif
 
 namespace esphome {
 namespace vl53l1x {
@@ -17,31 +12,20 @@ enum DistanceMode {
   LONG,
 };
 
-class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public sensor::Sensor {
+class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
  public:
-
-#ifdef USE_SENSOR 
   void set_distance_sensor(sensor::Sensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   void set_range_status_sensor(sensor::Sensor *range_status_sensor) { range_status_sensor_ = range_status_sensor; }
   void config_distance_mode(DistanceMode distance_mode ) { distance_mode_ = distance_mode; }
-#endif
-
-#ifdef USE_BINARY_SENSOR
-  void set_above_distance(long above_distance) { above_distance_ = above_distance; }
-  void set_below_distance(long below_distance) { below_distance_ = below_distance; }
-  SUB_BINARY_SENSOR(range_valid)
-  SUB_BINARY_SENSOR(above_threshold)
-  SUB_BINARY_SENSOR(below_threshold)
-#endif
 
   void setup() override;
   void dump_config() override;
   void update() override;
   void loop() override;
   float get_setup_priority() const override;
- 
+
  protected:
-  DistanceMode distance_mode_;
+  DistanceMode distance_mode_{LONG};
 
   uint16_t distance_{0};
 
@@ -56,10 +40,19 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
 
   enum ErrorCode {
     NONE = 0,
-    COMMUNICATION_FAILED,
-    WRONG_CHIP_ID,
-    DATAREADY_TIMEOUT,
+    BOOT_STATE_FAILED,
     BOOT_TIMEOUT,
+    CONFIGURATION_FAILED,
+    WRONG_CHIP_ID,
+    START_RANGING_FAILED,
+    DATA_READY_FAILED,
+    DATA_READY_TIMEOUT,
+    CLEAR_INTERRUPT_FAILED,
+    STOP_RANGING_FAILED,
+    COMMUNICATION_FAILED,
+    TIMING_BUDGET_FAILED,
+    INTERM_PERIOD_FAILED,
+    DISTANCE_MODE_FAILED,
   } error_code_{NONE};
 
   bool boot_state(uint8_t *state);
@@ -76,7 +69,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
   bool get_timing_budget(uint16_t *timing_budget_ms);
   bool set_timing_budget(uint16_t timing_budget_ms);
   bool get_distance_mode(DistanceMode *mode);
-  bool set_distance_mode(DistanceMode distance_mode);
+  bool set_distance_mode(DistanceMode mode);
   
   bool set_intermeasurement_period(uint16_t intermeasurement_ms);
   bool get_intermeasurement_period(uint16_t *intermeasurement_ms);
@@ -100,13 +93,8 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice, public 
   bool running_update_{false};
   uint16_t sensor_id_{0};
 
-  uint16_t above_distance_{0};
-  uint16_t below_distance_{0};
-  
-#ifdef USE_SENSOR
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *range_status_sensor_{nullptr};
-#endif
 };
 
 }  // namespace vl53l1x
