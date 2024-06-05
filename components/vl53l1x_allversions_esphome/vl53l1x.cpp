@@ -204,17 +204,17 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
   0x00  /* 0x87 : start ranging, use StartRanging() or StopRanging(), If you want an automatic start after VL53L1X_init() call, put 0x40 in location 0x87 */
 };
 
-static const uint16_t INIT_TIMEOUT  = 250;  // default timing budget = 100ms, so 250ms should be more than enough time
+static const uint16_t INIT_TIMEOUT  = 120;  // default timing budget = 100ms, so 250ms should be more than enough time
 static const uint16_t TIMING_BUDGET = 500;  // new timing budget is maximum allowable = 500 ms
 static const uint16_t LOOP_TIME     =  90;  // loop executes every 90ms
 
 // Sensor Initialisation
 void VL53L1XComponent::setup() {
   uint32_t start_time;
-  uint8_t state = 0;
+  //uint8_t state = 0;
   uint16_t addr;
   bool is_dataready;
-  
+  /*
   start_time = millis();
   while ((millis() - start_time) < INIT_TIMEOUT ) {
     if (!this->boot_state(&state)) {
@@ -223,13 +223,45 @@ void VL53L1XComponent::setup() {
       return;
     }
     if (state) break;
-  }
+  } */
 
-  if (!state) {
-    this->error_code_ = BOOT_TIMEOUT;
-    this->mark_failed();
-    return;
-  }
+  // this->set_timeout(INIT_TIMEOUT, [this]() { 
+  //   uint8_t state = 0;
+  //   if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
+  //     this->error_code_ = BOOT_STATE_FAILED;
+  //     this->mark_failed();
+  //   }
+  //   if (!state) {
+  //     this->error_code_ = BOOT_TIMEOUT;
+  //     this->mark_failed(); 
+  //   }
+  // });
+
+  this->set_timeout(INIT_TIMEOUT, [this]() { 
+    uint8_t state = 0;
+    if (!this->boot_state(&state)) {
+      this->error_code_ = BOOT_STATE_FAILED;
+      this->mark_failed();
+    }
+    if (!state) {
+      this->error_code_ = BOOT_TIMEOUT;
+      this->mark_failed(); 
+    }
+  });
+
+  if (this->error_code_ != NONE) return;
+ 
+  // if (!ok) {  
+  //   this->error_code_ = BOOT_STATE_FAILED;
+  //   this->mark_failed();
+  //   return;
+  // }
+  
+  // if (!state) {
+  //   this->error_code_ = BOOT_TIMEOUT;
+  //   this->mark_failed();
+  //   return;
+  // }
 
   for (addr = 0x002D; addr <= 0x0087; addr++) {
     if (!this->vl53l1x_write_byte(addr,VL51L1X_DEFAULT_CONFIGURATION[addr - 0x002D])) {
@@ -259,22 +291,56 @@ void VL53L1XComponent::setup() {
     return;
   }
 
-  start_time = millis();
-  while ((millis() - start_time) < INIT_TIMEOUT ) {
-    // ranging started now wait for data ready
+  this->set_timeout(INIT_TIMEOUT, [this]() { 
+    bool is_dataready;
     if (!this->check_for_dataready(&is_dataready)) {
       this->error_code_ = DATA_READY_FAILED;
       this->mark_failed();
-      return;
     }
-    if (is_dataready) break;
-  }
+    if (!is_dataready) {
+      this->error_code_ = DATA_READY_TIMEOUT;
+      this->mark_failed(); 
+    }
+  });
 
-  if (!is_dataready) {
-    this->error_code_ = DATA_READY_TIMEOUT;
-    this->mark_failed();
-    return;
-  }
+  // this->set_timeout(INIT_TIMEOUT, [this]() { 
+  //   uint8_t ctl, status;
+  //   uint8_t int_polarity;
+  //   if (!this->vl53l1x_read_byte(GPIO_HV_MUX__CTRL, &ctl)) {
+  //     this->error_code_ = DATA_READY_FAILED;
+  //     this->mark_failed();
+  //   }
+  //   ctl = ctl & 0x10;
+  //   int_polarity = !(ctl >> 4);
+
+  //   if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &status)) {
+  //     this->error_code_ = DATA_READY_FAILED;
+  //     this->mark_failed();
+  //   }
+
+  //   if (!((status & 1) == int_polarity)) {
+  //     this->error_code_ = DATA_READY_TIMEOUT;
+  //     this->mark_failed(); 
+  //   }
+  // });
+
+  if (this->error_code_ != NONE) return;
+  // start_time = millis();
+  // while ((millis() - start_time) < INIT_TIMEOUT ) {
+  //   // ranging started now wait for data ready
+  //   if (!this->check_for_dataready(&is_dataready)) {
+  //     this->error_code_ = DATA_READY_FAILED;
+  //     this->mark_failed();
+  //     return;
+  //   }
+  //   if (is_dataready) break;
+  // }
+
+  // if (!is_dataready) {
+  //   this->error_code_ = DATA_READY_TIMEOUT;
+  //   this->mark_failed();
+  //   return;
+  // }
 
   if (!this->clear_interrupt()) {
     this->error_code_ = CLEAR_INTERRUPT_FAILED;
@@ -368,6 +434,7 @@ void VL53L1XComponent::dump_config() {
       ESP_LOGE(TAG, "  Distance Mode communication error");
       break;
     case NONE:
+    default:
       ESP_LOGD(TAG, "  Setup successful - all versions");
 
       // no errors so sensor must be VL53L1X or VL53L4CD
@@ -401,24 +468,34 @@ void VL53L1XComponent::dump_config() {
       if (this->range_status_sensor_ != nullptr) {
         LOG_SENSOR("  ", "Range Status Sensor:", this->range_status_sensor_);
       }
-      break;
+      break;   
    }
 }
 
 void VL53L1XComponent::loop() {
-  bool is_dataready;
+  //bool is_dataready;
   // only run loop if not updating and every LOOP_TIME
-  if (this->running_update_ || ((millis() - this->last_loop_time_) < LOOP_TIME) || this->is_failed() )
-    return;
+  // if (this->running_update_ || ((millis() - this->last_loop_time_) < LOOP_TIME) || this->is_failed() )
+  //   return;
 
-  if (!this->check_for_dataready(&is_dataready)) {
-    return;
-  }
+  // if (!this->check_for_dataready(&is_dataready)) {
+  //   return;
+  // }
+  if (this->running_update_ || this->is_failed() ) return;
 
-  if (!is_dataready) {
-    this->last_loop_time_ = millis();
-    return;
-  }
+  this->set_timeout(LOOP_TIME, [this]() { 
+    if (!this->check_for_dataready(&this->new_data_is_ready_)) {
+      this->error_code_ = DATA_READY_FAILED;
+      this->mark_failed();
+    }
+  });
+  if (!this->new_data_is_ready_) return;
+  
+
+  // if (!is_dataready) {
+  //   this->last_loop_time_ = millis();
+  //   return;
+  // }
 
   // data ready now
   if (!this->get_distance(&this->distance_)) return;
@@ -514,19 +591,41 @@ bool VL53L1XComponent::stop_ranging() {
   return true;
 }
 
+// bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
+//   uint8_t temp;
+//   uint8_t int_polarity;
+
+//   if (!get_interrupt_polarity(&int_polarity)) return false;
+
+//   if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &temp)) {
+//     ESP_LOGW(TAG, "Error reading Data Ready");
+//     this->status_set_warning();
+//     return false;
+//   }
+
+//   *is_dataready =((temp & 1) == int_polarity);
+//   return true;
+// }
+
 bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
-  uint8_t temp;
+  uint8_t ctl, status;
   uint8_t int_polarity;
 
-  if (!get_interrupt_polarity(&int_polarity)) return false;
+  if (!this->vl53l1x_read_byte(GPIO_HV_MUX__CTRL, &ctl)) {
+    ESP_LOGW(TAG, "Error reading Interrupt Polarity");
+    this->status_set_warning();
+    return false;
+  }
+  ctl = ctl & 0x10;
+  int_polarity = !(ctl >> 4);
 
-  if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &temp)) {
+  if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &status)) {
     ESP_LOGW(TAG, "Error reading Data Ready");
     this->status_set_warning();
     return false;
   }
 
-  *is_dataready =((temp & 1) == int_polarity);
+  *is_dataready =((status & 1) == int_polarity);
   return true;
 }
 

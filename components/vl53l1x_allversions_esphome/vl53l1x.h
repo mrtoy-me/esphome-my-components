@@ -28,7 +28,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   DistanceMode distance_mode_{LONG};
 
   uint16_t distance_{0};
-
+  
   enum RangeStatus {
     RANGE_VALID  = 0,
     SIGMA_FAIL_WARNING,
@@ -92,6 +92,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   bool distance_mode_overriden_{false};
   bool running_update_{false};
   uint16_t sensor_id_{0};
+  bool new_data_is_ready_ {false};
 
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *range_status_sensor_{nullptr};
