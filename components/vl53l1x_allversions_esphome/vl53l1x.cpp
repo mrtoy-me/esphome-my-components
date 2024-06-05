@@ -507,7 +507,7 @@ void VL53L1XComponent::loop() {
     this->mark_failed();
     return;
   }
-  this->last_loop_time_ = millis();
+  //this->last_loop_time_ = millis();
 }
 
 void VL53L1XComponent::update() {
@@ -630,7 +630,8 @@ bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
 }
 
 bool VL53L1XComponent::set_timing_budget(uint16_t timing_budget_ms) {
-  bool ok;
+  //bool ok;
+  uint16_t a_hi, b_hi;
   DistanceMode mode;
 
   if ( !get_distance_mode(&mode) ) return false;
@@ -638,95 +639,152 @@ bool VL53L1XComponent::set_timing_budget(uint16_t timing_budget_ms) {
   if (mode == SHORT) {
     switch (timing_budget_ms) {
       case 15: // only available in short distance mode
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x001D);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0027);
+        a_hi = 0x001D;
+        b_hi = 0x0027;
         break;
       case 20:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x0051);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x006E);
+        a_hi = 0x0051;
+        b_hi = 0x006E;
         break;
       case 33:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x00D6);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x006E);
+        a_hi = 0x00D6;
+        b_hi = 0x006E;
         break;
       case 50:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x01AE);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x01E8);
+        a_hi = 0x01AE;
+        b_hi = 0x01E8;
         break;
       case 100:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x02E1);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0388);
+      default:
+        a_hi = 0x02E1;
+        b_hi = 0x0388;
         break;
       case 200:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x03E1);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0496);
+        a_hi = 0x03E1;
+        b_hi = 0x0496;
         break;
       case 500:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x0591);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x05C1);
+        a_hi = 0x0591;
+        b_hi = 0x05C1;
         break;
-      default:
-        ESP_LOGD(TAG,"Invalid set timing budget ms value = %i", timing_budget_ms);
-        this->status_set_warning();
-        return false;
     }
-    if (!ok) {
-      ESP_LOGW(TAG, "Error writing Set Time Budget values");
-      this->status_set_warning();
-      return false;
-    }
+      // case 15: // only available in short distance mode
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x001D);
+      //   if (!ok) break;
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0027);
+      //   break;
+      // case 20:
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x0051);
+      //   if (!ok) break;
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x006E);
+      //   break;
+      // case 33:
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x00D6);
+      //   if (!ok) break;
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x006E);
+      //   break;
+      // case 50:
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x01AE);
+      //   if (!ok) break;
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x01E8);
+      //   break;
+      // case 100:
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x02E1);
+      //   if (!ok) break;
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0388);
+      //   break;
+      // case 200:
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x03E1);
+      //   if (!ok) break;
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0496);
+      //   break;
+      // case 500:
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x0591);
+      //   if (!ok) break;
+      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x05C1);
+      //   break;
+      // default:
+      //   ESP_LOGD(TAG,"Invalid set timing budget ms value = %i", timing_budget_ms);
+      //   this->status_set_warning();
+      //   return false;
+    //}
+    // if (!ok) {
+    //   ESP_LOGW(TAG, "Error writing Set Time Budget values");
+    //   this->status_set_warning();
+    //   return false;
+    // }
   }
   else {
+    // switch (timing_budget_ms) {
+    //   case 20:
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x001E);
+    //     if (!ok) break;
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0022);
+    //     break;
+    //   case 33:
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x0060);
+    //     if (!ok) break;
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x006E);
+    //     break;
+    //   case 50:
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x00AD);
+    //     if (!ok) break;
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x00C6);
+    //     break;
+    //   case 100:
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x01CC);
+    //     if (!ok) break;
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x01EA);
+    //     break;
+    //   case 200:
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x02D9);
+    //     if (!ok) break;
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x02F8);
+    //     break;
+    //   case 500:
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x048F);
+    //     if (!ok) break;
+    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x04A4);
+    //     break;
+    //   default:
+    //     ESP_LOGD(TAG,"Invalid Set Timing Budget ms value = %i", timing_budget_ms);
+    //     this->status_set_warning();
+    //     return false;
     switch (timing_budget_ms) {
       case 20:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x001E);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0022);
+        a_hi = 0x001E;
+        b_hi = 0x0022;
         break;
       case 33:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x0060);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x006E);
+        a_hi = 0x0060;
+        b_hi = 0x006E;
         break;
       case 50:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x00AD);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x00C6);
+        a_hi = 0x00AD;
+        b_hi = 0x00C6;
         break;
       case 100:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x01CC);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x01EA);
+      default:
+        a_hi = 0x01CC;
+        b_hi = 0x01EA;
         break;
       case 200:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x02D9);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x02F8);
+        a_hi = 0x02D9;
+        b_hi = 0x02F8;
         break;
       case 500:
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x048F);
-        if (!ok) break;
-        ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x04A4);
+        a_hi = 0x048F;
+        b_hi = 0x04A4;
         break;
-      default:
-        ESP_LOGD(TAG,"Invalid Set Timing Budget ms value = %i", timing_budget_ms);
-        this->status_set_warning();
-        return false;
     }
-    if (!ok) {
-      ESP_LOGW(TAG, "Error writing Set Time Budget values");
-      this->status_set_warning();
-      return false;
-    }
+    // if (!ok) {
+    //   ESP_LOGW(TAG, "Error writing Set Time Budget values");
+    //   this->status_set_warning();
+    //   return false;
+    // }
   }
-  return true;
+  if (!this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, a_hi)) return false;
+  return this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, b_hi);
 }
 
 bool VL53L1XComponent::get_timing_budget(uint16_t *timing_budget_ms) {
@@ -822,6 +880,7 @@ bool VL53L1XComponent::set_distance_mode(DistanceMode distance_mode) {
       ok = vl53l1x_write_byte_16(SD_CONFIG__INITIAL_PHASE_SD0, 0x0606);
       break;
     case LONG:
+    default:
       ok = vl53l1x_write_byte(PHASECAL_CONFIG__TIMEOUT_MACROP, 0x0A);
       if (!ok) break;
       ok = vl53l1x_write_byte(RANGE_CONFIG__VCSEL_PERIOD_A, 0x0F);
@@ -834,11 +893,11 @@ bool VL53L1XComponent::set_distance_mode(DistanceMode distance_mode) {
       if (!ok) break;
       ok = vl53l1x_write_byte_16(SD_CONFIG__INITIAL_PHASE_SD0, 0x0E0E);
       break;
-    default:
-      // should never happen
-      ESP_LOGD(TAG,"Set Distance Mode - invalid distance mode");
-      this->status_set_warning();
-      return false;
+    // default:
+    //   // should never happen
+    //   ESP_LOGD(TAG,"Set Distance Mode - invalid distance mode");
+    //   this->status_set_warning();
+    //   return false;
   }
   if (!ok ) {
     ESP_LOGW(TAG, "Error writing distance mode setup values");
@@ -927,12 +986,13 @@ bool VL53L1XComponent::check_sensor_id() {
     return false;
   }
   // 0xEACC = VL53L1X, 0xEBAA = VL53L4CD
-  if ((this->sensor_id_ == 0xEACC) || (this->sensor_id_ == 0xEBAA)) {
-    return true;
-  }
-  else {
-    return false;
-  }
+  // if ((this->sensor_id_ == 0xEACC) || (this->sensor_id_ == 0xEBAA)) {
+  //   return true;
+  // }
+  // else {
+  //   return false;
+  // }
+  return ((this->sensor_id_ == 0xEACC) || (this->sensor_id_ == 0xEBAA));
 }
 
 bool VL53L1XComponent::get_distance(uint16_t *distance) {
