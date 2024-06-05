@@ -210,36 +210,12 @@ static const uint16_t LOOP_TIME     =  90;  // loop executes every 90ms
 
 // Sensor Initialisation
 void VL53L1XComponent::setup() {
-  uint32_t start_time;
-  //uint8_t state = 0;
   uint16_t addr;
   bool is_dataready;
-  /*
-  start_time = millis();
-  while ((millis() - start_time) < INIT_TIMEOUT ) {
-    if (!this->boot_state(&state)) {
-      this->error_code_ = BOOT_STATE_FAILED;
-      this->mark_failed();
-      return;
-    }
-    if (state) break;
-  } */
-
-  // this->set_timeout(INIT_TIMEOUT, [this]() { 
-  //   uint8_t state = 0;
-  //   if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
-  //     this->error_code_ = BOOT_STATE_FAILED;
-  //     this->mark_failed();
-  //   }
-  //   if (!state) {
-  //     this->error_code_ = BOOT_TIMEOUT;
-  //     this->mark_failed(); 
-  //   }
-  // });
 
   this->set_timeout(INIT_TIMEOUT, [this]() { 
     uint8_t state = 0;
-    if (!this->boot_state(&state)) {
+    if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
       this->error_code_ = BOOT_STATE_FAILED;
       this->mark_failed();
     }
@@ -251,18 +227,6 @@ void VL53L1XComponent::setup() {
 
   if (this->error_code_ != NONE) return;
  
-  // if (!ok) {  
-  //   this->error_code_ = BOOT_STATE_FAILED;
-  //   this->mark_failed();
-  //   return;
-  // }
-  
-  // if (!state) {
-  //   this->error_code_ = BOOT_TIMEOUT;
-  //   this->mark_failed();
-  //   return;
-  // }
-
   for (addr = 0x002D; addr <= 0x0087; addr++) {
     if (!this->vl53l1x_write_byte(addr,VL51L1X_DEFAULT_CONFIGURATION[addr - 0x002D])) {
       ESP_LOGE(TAG, "Error writing default configuration: address = 0x%X", addr);
@@ -303,44 +267,7 @@ void VL53L1XComponent::setup() {
     }
   });
 
-  // this->set_timeout(INIT_TIMEOUT, [this]() { 
-  //   uint8_t ctl, status;
-  //   uint8_t int_polarity;
-  //   if (!this->vl53l1x_read_byte(GPIO_HV_MUX__CTRL, &ctl)) {
-  //     this->error_code_ = DATA_READY_FAILED;
-  //     this->mark_failed();
-  //   }
-  //   ctl = ctl & 0x10;
-  //   int_polarity = !(ctl >> 4);
-
-  //   if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &status)) {
-  //     this->error_code_ = DATA_READY_FAILED;
-  //     this->mark_failed();
-  //   }
-
-  //   if (!((status & 1) == int_polarity)) {
-  //     this->error_code_ = DATA_READY_TIMEOUT;
-  //     this->mark_failed(); 
-  //   }
-  // });
-
   if (this->error_code_ != NONE) return;
-  // start_time = millis();
-  // while ((millis() - start_time) < INIT_TIMEOUT ) {
-  //   // ranging started now wait for data ready
-  //   if (!this->check_for_dataready(&is_dataready)) {
-  //     this->error_code_ = DATA_READY_FAILED;
-  //     this->mark_failed();
-  //     return;
-  //   }
-  //   if (is_dataready) break;
-  // }
-
-  // if (!is_dataready) {
-  //   this->error_code_ = DATA_READY_TIMEOUT;
-  //   this->mark_failed();
-  //   return;
-  // }
 
   if (!this->clear_interrupt()) {
     this->error_code_ = CLEAR_INTERRUPT_FAILED;
@@ -473,14 +400,6 @@ void VL53L1XComponent::dump_config() {
 }
 
 void VL53L1XComponent::loop() {
-  //bool is_dataready;
-  // only run loop if not updating and every LOOP_TIME
-  // if (this->running_update_ || ((millis() - this->last_loop_time_) < LOOP_TIME) || this->is_failed() )
-  //   return;
-
-  // if (!this->check_for_dataready(&is_dataready)) {
-  //   return;
-  // }
   if (this->running_update_ || this->is_failed() ) return;
 
   this->set_timeout(LOOP_TIME, [this]() { 
@@ -489,13 +408,8 @@ void VL53L1XComponent::loop() {
       this->mark_failed();
     }
   });
-  if (!this->new_data_is_ready_) return;
-  
 
-  // if (!is_dataready) {
-  //   this->last_loop_time_ = millis();
-  //   return;
-  // }
+  if (!this->new_data_is_ready_) return;
 
   // data ready now
   if (!this->get_distance(&this->distance_)) return;
@@ -507,7 +421,6 @@ void VL53L1XComponent::loop() {
     this->mark_failed();
     return;
   }
-  //this->last_loop_time_ = millis();
 }
 
 void VL53L1XComponent::update() {
@@ -591,22 +504,6 @@ bool VL53L1XComponent::stop_ranging() {
   return true;
 }
 
-// bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
-//   uint8_t temp;
-//   uint8_t int_polarity;
-
-//   if (!get_interrupt_polarity(&int_polarity)) return false;
-
-//   if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &temp)) {
-//     ESP_LOGW(TAG, "Error reading Data Ready");
-//     this->status_set_warning();
-//     return false;
-//   }
-
-//   *is_dataready =((temp & 1) == int_polarity);
-//   return true;
-// }
-
 bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
   uint8_t ctl, status;
   uint8_t int_polarity;
@@ -630,7 +527,6 @@ bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
 }
 
 bool VL53L1XComponent::set_timing_budget(uint16_t timing_budget_ms) {
-  //bool ok;
   uint16_t a_hi, b_hi;
   DistanceMode mode;
 
@@ -655,7 +551,6 @@ bool VL53L1XComponent::set_timing_budget(uint16_t timing_budget_ms) {
         b_hi = 0x01E8;
         break;
       case 100:
-      default:
         a_hi = 0x02E1;
         b_hi = 0x0388;
         break;
@@ -664,92 +559,13 @@ bool VL53L1XComponent::set_timing_budget(uint16_t timing_budget_ms) {
         b_hi = 0x0496;
         break;
       case 500:
+      default:
         a_hi = 0x0591;
         b_hi = 0x05C1;
         break;
     }
-      // case 15: // only available in short distance mode
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x001D);
-      //   if (!ok) break;
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0027);
-      //   break;
-      // case 20:
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x0051);
-      //   if (!ok) break;
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x006E);
-      //   break;
-      // case 33:
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x00D6);
-      //   if (!ok) break;
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x006E);
-      //   break;
-      // case 50:
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x01AE);
-      //   if (!ok) break;
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x01E8);
-      //   break;
-      // case 100:
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x02E1);
-      //   if (!ok) break;
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0388);
-      //   break;
-      // case 200:
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x03E1);
-      //   if (!ok) break;
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0496);
-      //   break;
-      // case 500:
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x0591);
-      //   if (!ok) break;
-      //   ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x05C1);
-      //   break;
-      // default:
-      //   ESP_LOGD(TAG,"Invalid set timing budget ms value = %i", timing_budget_ms);
-      //   this->status_set_warning();
-      //   return false;
-    //}
-    // if (!ok) {
-    //   ESP_LOGW(TAG, "Error writing Set Time Budget values");
-    //   this->status_set_warning();
-    //   return false;
-    // }
-  }
-  else {
-    // switch (timing_budget_ms) {
-    //   case 20:
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x001E);
-    //     if (!ok) break;
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x0022);
-    //     break;
-    //   case 33:
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x0060);
-    //     if (!ok) break;
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x006E);
-    //     break;
-    //   case 50:
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x00AD);
-    //     if (!ok) break;
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x00C6);
-    //     break;
-    //   case 100:
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x01CC);
-    //     if (!ok) break;
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x01EA);
-    //     break;
-    //   case 200:
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x02D9);
-    //     if (!ok) break;
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x02F8);
-    //     break;
-    //   case 500:
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, 0x048F);
-    //     if (!ok) break;
-    //     ok = this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, 0x04A4);
-    //     break;
-    //   default:
-    //     ESP_LOGD(TAG,"Invalid Set Timing Budget ms value = %i", timing_budget_ms);
-    //     this->status_set_warning();
-    //     return false;
+  } 
+  else { // must be mode == LONG
     switch (timing_budget_ms) {
       case 20:
         a_hi = 0x001E;
@@ -764,7 +580,6 @@ bool VL53L1XComponent::set_timing_budget(uint16_t timing_budget_ms) {
         b_hi = 0x00C6;
         break;
       case 100:
-      default:
         a_hi = 0x01CC;
         b_hi = 0x01EA;
         break;
@@ -773,15 +588,11 @@ bool VL53L1XComponent::set_timing_budget(uint16_t timing_budget_ms) {
         b_hi = 0x02F8;
         break;
       case 500:
+      default:
         a_hi = 0x048F;
         b_hi = 0x04A4;
         break;
     }
-    // if (!ok) {
-    //   ESP_LOGW(TAG, "Error writing Set Time Budget values");
-    //   this->status_set_warning();
-    //   return false;
-    // }
   }
   if (!this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_A_HI, a_hi)) return false;
   return this->vl53l1x_write_byte_16(RANGE_CONFIG__TIMEOUT_MACROP_B_HI, b_hi);
@@ -893,11 +704,6 @@ bool VL53L1XComponent::set_distance_mode(DistanceMode distance_mode) {
       if (!ok) break;
       ok = vl53l1x_write_byte_16(SD_CONFIG__INITIAL_PHASE_SD0, 0x0E0E);
       break;
-    // default:
-    //   // should never happen
-    //   ESP_LOGD(TAG,"Set Distance Mode - invalid distance mode");
-    //   this->status_set_warning();
-    //   return false;
   }
   if (!ok ) {
     ESP_LOGW(TAG, "Error writing distance mode setup values");
