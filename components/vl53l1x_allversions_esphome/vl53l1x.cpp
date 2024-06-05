@@ -853,7 +853,6 @@ bool VL53L1XComponent::vl53l1x_read_byte_16(uint16_t a_register, uint16_t *data)
   return this->vl53l1x_read_bytes_16(a_register, data, 1);
 }
 
-
 float VL53L1XComponent::get_setup_priority() const { return setup_priority::DATA; }
 
 } // namespace VL53L1X
