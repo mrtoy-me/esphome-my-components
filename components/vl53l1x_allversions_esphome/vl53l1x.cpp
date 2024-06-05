@@ -235,11 +235,18 @@ void VL53L1XComponent::setup() {
       return;
     }
   }
+  
+  if (!this->vl53l1x_read_byte_16(VL53L1_IDENTIFICATION__MODEL_ID, &this->sensor_id_)) {
+    this->error_code_ = COMMUNICATION_FAILED;
+    this->mark_failed();
+    return;
+  }
 
-  if (!this->check_sensor_id()) {
-      this->error_code_ = WRONG_CHIP_ID;
-      this->mark_failed();
-      return;
+  // 0xEACC = VL53L1X, 0xEBAA = VL53L4CD
+  if ((this->sensor_id_ != 0xEACC) && (this->sensor_id_ != 0xEBAA)) {
+    this->error_code_ = WRONG_CHIP_ID;
+    this->mark_failed();
+    return; 
   }
 
   // 0xEBAA = VL53L4CD must run with SHORT distance mode
@@ -439,7 +446,6 @@ void VL53L1XComponent::update() {
   this->running_update_ = false;
 }
 
-
 bool VL53L1XComponent::clear_interrupt() {
   if (!this->vl53l1x_write_byte(SYSTEM__INTERRUPT_CLEAR, 0x01)) {
     ESP_LOGW(TAG, "Error writing Clear Interrupt");
@@ -449,26 +455,10 @@ bool VL53L1XComponent::clear_interrupt() {
   return true;
 }
 
-bool VL53L1XComponent::get_interrupt_polarity(uint8_t *interrupt_polarity) {
-  uint8_t temp;
-
-  if (!this->vl53l1x_read_byte(GPIO_HV_MUX__CTRL, &temp)) {
-    ESP_LOGW(TAG, "Error reading Interrupt Polarity");
-    this->status_set_warning();
-    return false;
-  }
-  temp = temp & 0x10;
-  *interrupt_polarity = !(temp >> 4);
-  return true;
-}
-
 bool VL53L1XComponent::start_ranging() {
-  /* Clear interrupt trigger */
-  if (!this->vl53l1x_write_byte(SYSTEM__INTERRUPT_CLEAR, 0x01))  {
-    ESP_LOGW(TAG, "Error writing Clear Interrupt");
-    this->status_set_warning();
-    return false;
-  }
+  // first clear interrupt 
+  if (!clear_interrupt()) return false;
+
   if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x40)) {
     ESP_LOGW(TAG, "Error writing Start Ranging");
     this->status_set_warning();
@@ -477,25 +467,8 @@ bool VL53L1XComponent::start_ranging() {
   return true;
 }
 
-
-bool VL53L1XComponent::start_oneshot_ranging() {
-  /* Clear interrupt trigger */
-  if (!this->vl53l1x_write_byte(SYSTEM__INTERRUPT_CLEAR, 0x01))  {
-    ESP_LOGW(TAG, "Error writing Clear Interrupt");
-    this->status_set_warning();
-    return false;
-  }
-  /* Enable VL53L1X one-shot ranging */
-  if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x10)) {
-    ESP_LOGW(TAG, "Error writing Start Ranging");
-    this->status_set_warning();
-    return false;
-  }
-  return true;
-}
-
 bool VL53L1XComponent::stop_ranging() {
-  /* Disable VL53L1X */
+  // disable VL53L1X 
   if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x00)) {
     ESP_LOGW(TAG, "Error writing Start Ranging");
     this->status_set_warning();
@@ -521,7 +494,6 @@ bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
     this->status_set_warning();
     return false;
   }
-
   *is_dataready =((status & 1) == int_polarity);
   return true;
 }
@@ -638,37 +610,12 @@ bool VL53L1XComponent::get_timing_budget(uint16_t *timing_budget_ms) {
       *timing_budget_ms = 500;
       break;
     default:
-      ESP_LOGD(TAG,"Invalid Get Timing Budget value: raw value = 0x%04X", raw_timing_budget);
-      break;
+      ESP_LOGD(TAG,"Invalid timing budget: raw value = 0x%04X", raw_timing_budget);
+      this->status_set_warning();
+      return false;
   }
   return true;
 }
-
-bool VL53L1XComponent::get_distance_mode(DistanceMode *mode) {
-  uint8_t raw_distance_mode;
-
-  if (!this->vl53l1x_read_byte(PHASECAL_CONFIG__TIMEOUT_MACROP, &raw_distance_mode)) {
-    ESP_LOGW(TAG, "Error reading Distance Mode");
-    this->status_set_warning();
-    return false;
-  }
-
-  if (raw_distance_mode == 0x14) {
-    *mode = SHORT;
-    return true;
-  }
-
-  if (raw_distance_mode == 0x0A) {
-    *mode = LONG;
-    return true;
-  }
-
-  // should never get here
-  ESP_LOGW(TAG, "Get Distance Mode - invalid value");
-  this->status_set_warning();
-  return false;
-}
-
 
 bool VL53L1XComponent::set_distance_mode(DistanceMode distance_mode) {
   bool ok;
@@ -713,6 +660,30 @@ bool VL53L1XComponent::set_distance_mode(DistanceMode distance_mode) {
   return true;
 }
 
+bool VL53L1XComponent::get_distance_mode(DistanceMode *mode) {
+  uint8_t raw_distance_mode;
+
+  if (!this->vl53l1x_read_byte(PHASECAL_CONFIG__TIMEOUT_MACROP, &raw_distance_mode)) {
+    ESP_LOGW(TAG, "Error reading Distance Mode");
+    this->status_set_warning();
+    return false;
+  }
+
+  if (raw_distance_mode == 0x14) {
+    *mode = SHORT;
+    return true;
+  }
+  if (raw_distance_mode == 0x0A) {
+    *mode = LONG;
+    return true;
+  }
+
+  // should never get here
+  ESP_LOGD(TAG, "Invalid distance mode: raw value = 0x%04X", raw_distance_mode);
+  this->status_set_warning();
+  return false;
+}
+
 bool VL53L1XComponent::set_intermeasurement_period(uint16_t intermeasurement_ms) {
 
   uint16_t timing_budget_ms,clock_pll;
@@ -734,12 +705,9 @@ bool VL53L1XComponent::set_intermeasurement_period(uint16_t intermeasurement_ms)
   }
 
   clock_pll = clock_pll & 0x3FF;
-  //ESP_LOGD(TAG, "set imp clock_pll = %i", clock_pll);
-  intermeasurement_period =
-    static_cast<uint32_t>(clock_pll * intermeasurement_ms * 1.075);
-  //ESP_LOGD(TAG, "imp =  %i", intermeasurement_period);
+  intermeasurement_period = static_cast<uint32_t>(clock_pll * intermeasurement_ms * 1.075);
   if (!this->vl53l1x_write_bytes_16(VL53L1_SYSTEM__INTERMEASUREMENT_PERIOD,
-               reinterpret_cast<const uint16_t *>(&intermeasurement_period), 2)) {
+                                    reinterpret_cast<const uint16_t *>(&intermeasurement_period), 2)) {
     ESP_LOGW(TAG, "Error writing Intermeasurement period");
     this->status_set_warning();
     return false;
@@ -747,13 +715,12 @@ bool VL53L1XComponent::set_intermeasurement_period(uint16_t intermeasurement_ms)
   return true;
 }
 
-
 bool VL53L1XComponent::get_intermeasurement_period(uint16_t *intermeasurement_ms) {
   uint16_t clock_pll;
   uint32_t tmp;
 
   if (!this->vl53l1x_read_bytes_16(VL53L1_SYSTEM__INTERMEASUREMENT_PERIOD,
-               reinterpret_cast<uint16_t *>(&tmp), 2)) {
+                                   reinterpret_cast<uint16_t *>(&tmp), 2)) {
     ESP_LOGW(TAG, "Error reading Intermeasurment Period");
     this->status_set_warning();
     return false;
@@ -768,38 +735,11 @@ bool VL53L1XComponent::get_intermeasurement_period(uint16_t *intermeasurement_ms
   }
 
   clock_pll = clock_pll & 0x3FF;
-  //ESP_LOGD(TAG, "get imp clock_pll = %i", clock_pll);
-  //ESP_LOGD(TAG, "raw imp =  %i", *intermeasurement_ms);
   *intermeasurement_ms = (uint16_t)(*intermeasurement_ms / (clock_pll * 1.065));
-  //ESP_LOGD(TAG, "converted imp =  %i", *intermeasurement_ms);
   return true;
 }
 
-bool VL53L1XComponent::boot_state(uint8_t *state) {
-  // state: 1 = booted, 0 = not booted
-  if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, state)) {
-    ESP_LOGW(TAG, "Error reading Boot State");
-    this->status_set_warning();
-    return false;
-  }
-  return true;
-}
 
-bool VL53L1XComponent::check_sensor_id() {
-  if (!this->vl53l1x_read_byte_16(VL53L1_IDENTIFICATION__MODEL_ID, &this->sensor_id_)) {
-    ESP_LOGW(TAG, "Error reading Device ID");
-    this->status_set_warning();
-    return false;
-  }
-  // 0xEACC = VL53L1X, 0xEBAA = VL53L4CD
-  // if ((this->sensor_id_ == 0xEACC) || (this->sensor_id_ == 0xEBAA)) {
-  //   return true;
-  // }
-  // else {
-  //   return false;
-  // }
-  return ((this->sensor_id_ == 0xEACC) || (this->sensor_id_ == 0xEBAA));
-}
 
 bool VL53L1XComponent::get_distance(uint16_t *distance) {
   if (!this->vl53l1x_read_byte_16(VL53L1_RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0,

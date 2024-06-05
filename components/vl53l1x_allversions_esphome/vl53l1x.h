@@ -55,24 +55,22 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
     DISTANCE_MODE_FAILED,
   } error_code_{NONE};
 
-  bool boot_state(uint8_t *state);
   bool clear_interrupt();
-  bool get_interrupt_polarity(uint8_t *interrupt_polarity);
   bool start_ranging();
-  bool start_oneshot_ranging();
   bool stop_ranging();
   bool check_for_dataready(bool *is_dataready);
-  bool check_sensor_id();
-  bool get_distance(uint16_t *distance);
-  bool get_range_status();
-
-  bool get_timing_budget(uint16_t *timing_budget_ms);
-  bool set_timing_budget(uint16_t timing_budget_ms);
-  bool get_distance_mode(DistanceMode *mode);
-  bool set_distance_mode(DistanceMode mode);
   
+  bool set_timing_budget(uint16_t timing_budget_ms);
+  bool get_timing_budget(uint16_t *timing_budget_ms);
+
+  bool set_distance_mode(DistanceMode mode);
+  bool get_distance_mode(DistanceMode *mode);
+
   bool set_intermeasurement_period(uint16_t intermeasurement_ms);
   bool get_intermeasurement_period(uint16_t *intermeasurement_ms);
+
+  bool get_distance(uint16_t *distance);
+  bool get_range_status();
 
   i2c::ErrorCode vl53l1x_write_register(uint16_t a_register, const uint8_t *data, size_t len);
   i2c::ErrorCode vl53l1x_read_register(uint16_t a_register, uint8_t *data, size_t len);
