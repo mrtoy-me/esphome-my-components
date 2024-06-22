@@ -70,7 +70,9 @@ static const char *const TAG = "vl53l1x.sensor";
 
 static const uint16_t SOFT_RESET                                                          = 0x0000;
 static const uint16_t VL53L1_I2C_SLAVE__DEVICE_ADDRESS                                    = 0x0001;
+
 static const uint16_t VL53L1_VHV_CONFIG__TIMEOUT_MACROP_LOOP_BOUND                        = 0x0008;
+static const uint16_t VL53L1_START_VHV_FROM_PREVIOUS_TEMPERATURE                          = 0x000B;
 static const uint16_t ALGO__CROSSTALK_COMPENSATION_PLANE_OFFSET_KCPS                      = 0x0016;
 static const uint16_t ALGO__CROSSTALK_COMPENSATION_X_PLANE_GRADIENT_KCPS                  = 0x0018;
 static const uint16_t ALGO__CROSSTALK_COMPENSATION_Y_PLANE_GRADIENT_KCPS                  = 0x001A;
@@ -294,7 +296,7 @@ void VL53L1XComponent::setup() {
     this->mark_failed();
     return;
   }
-  if (!this->write_byte(0x0B, 0))  {
+  if (!this->write_byte(VL53L1_START_VHV_FROM_PREVIOUS_TEMPERATURE, 0x00))  {
     ESP_LOGW(TAG, "Error writing Start VHV from the Previous Temperature");
     this->error_code_ = COMMUNICATION_FAILED;
     this->mark_failed();
