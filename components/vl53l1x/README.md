@@ -10,9 +10,13 @@ VL53L1 Core may be distributed under the terms of 'BSD 3-clause "New" or "Revise
 
 **All Copyright licences are shown in vl53l1x.cpp and licence.md files**
 
-## NOTE: This component requires Esphome version 2023.7.1 or later
+## NOTE: This was a test component and will be removed in August 2024.
+## It will be replaced by a simpler, updated version with different yaml requirements.
+
 
 ## Usage: VL53L1X component
+This component requires Esphome version 2023.7.1 or later.
+
 The following yaml can be used so ESPHome accesses the component files:
 ```
 external_components:
