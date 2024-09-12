@@ -88,8 +88,11 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   
   //uint32_t last_loop_time_{0};
   bool distance_mode_overriden_{false};
-  bool running_update_{false};
+  //bool running_update_{false};
+  bool have_new_data_set_ {false};
   uint16_t sensor_id_{0};
+  uint8_t data_is_ready_fails_{0};
+  uint8_t loops_with_warning_{0};
   bool new_data_is_ready_ {false};
 
   sensor::Sensor *distance_sensor_{nullptr};
