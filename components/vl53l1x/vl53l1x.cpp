@@ -208,26 +208,35 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
 
 static const uint16_t INIT_TIMEOUT  = 120;  // default timing budget = 100ms, so 250ms should be more than enough time
 static const uint16_t TIMING_BUDGET = 500;  // new timing budget is maximum allowable = 500 ms
-static const uint16_t LOOP_TIME     =  90;  // loop executes every 90ms
+static const uint16_t LOOP_TIME     =  90;  // do loop every this ms
 
 // Sensor Initialisation
 void VL53L1XComponent::setup() {
+  
+  uint32_t start_time, elapsed_time;
+  uint8_t state = 0;
   uint16_t addr;
   bool is_dataready;
 
-  this->set_timeout(INIT_TIMEOUT, [this]() { 
-    uint8_t state = 0;
-    if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
-      this->error_code_ = BOOT_STATE_FAILED;
-      this->mark_failed();
+  start_time = millis();
+  elapsed_time = 0;
+  while (elapsed_time < INIT_TIMEOUT) {
+    if ((elapsed_time % 2) == 0) {
+      if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
+        this->error_code_ = BOOT_STATE_FAILED;
+        this->mark_failed();
+        return;
+      }
+      if (state) break;
     }
-    if (!state) {
-      this->error_code_ = BOOT_TIMEOUT;
-      this->mark_failed(); 
-    }
-  });
+    elapsed_time = millis() - start_time;
+  }
 
-  if (this->error_code_ != NONE) return;
+  if (!state) {
+    this->error_code_ = BOOT_TIMEOUT;
+    this->mark_failed();
+    return;
+  }
  
   for (addr = 0x002D; addr <= 0x0087; addr++) {
     if (!this->vl53l1x_write_byte(addr,VL51L1X_DEFAULT_CONFIGURATION[addr - 0x002D])) {
@@ -264,19 +273,26 @@ void VL53L1XComponent::setup() {
     return;
   }
 
-  this->set_timeout(INIT_TIMEOUT, [this]() { 
-    bool is_dataready;
-    if (!this->check_for_dataready(&is_dataready)) {
-      this->error_code_ = DATA_READY_FAILED;
-      this->mark_failed();
+  start_time = millis();
+  elapsed_time = 0;
+  while (elapsed_time < INIT_TIMEOUT ) {
+    // ranging started now wait for data ready
+    if ((elapsed_time % 2) == 0) {
+      if (!this->check_for_dataready(&is_dataready)) {
+        this->error_code_ = DATA_READY_FAILED;
+        this->mark_failed();
+        return;
+      }
+      if (is_dataready) break;
     }
-    if (!is_dataready) {
-      this->error_code_ = DATA_READY_TIMEOUT;
-      this->mark_failed(); 
-    }
-  });
+    elapsed_time = millis() - start_time;
+  }
 
-  if (this->error_code_ != NONE) return;
+  if (!is_dataready) {
+    this->error_code_ = DATA_READY_TIMEOUT;
+    this->mark_failed();
+    return;
+  }
 
   if (!this->clear_interrupt()) {
     this->error_code_ = CLEAR_INTERRUPT_FAILED;
@@ -322,7 +338,7 @@ void VL53L1XComponent::setup() {
   }
 
   if (!this->start_ranging()) {
-    this->error_code_ = COMMUNICATION_FAILED;
+    this->error_code_ = START_RANGING_FAILED;
     this->mark_failed();
     return;
   }
@@ -371,7 +387,7 @@ void VL53L1XComponent::dump_config() {
       break;
     case NONE:
     default:
-      ESP_LOGD(TAG, "  Setup successful - all versions");
+      ESP_LOGD(TAG, "  Setup successful");
 
       // no errors so sensor must be VL53L1X or VL53L4CD
       if (this->sensor_id_ == 0xEACC) {
@@ -409,43 +425,61 @@ void VL53L1XComponent::dump_config() {
 }
 
 void VL53L1XComponent::loop() {
-  if (this->running_update_ || this->is_failed() ) return;
+  bool is_dataready;
 
-  this->set_timeout(LOOP_TIME, [this]() { 
-    if (!this->check_for_dataready(&this->new_data_is_ready_)) {
-      this->error_code_ = DATA_READY_FAILED;
-      this->mark_failed();
-    }
-  });
+  // only run loop if not updating and every LOOP_TIME
+  if ( ((millis() - this->last_loop_time_) < LOOP_TIME) || this->is_failed() ) return;
 
-  if (!this->new_data_is_ready_) return;
+  if (!this->check_for_dataready(&is_dataready)) {
+    return;
+  }
+
+  if (!is_dataready) {
+    this->last_loop_time_ = millis();
+    return;
+  }
 
   // data ready now
   if (!this->get_distance(&this->distance_)) return;
   if (!this->clear_interrupt()) return;
+  
   if (!this->stop_ranging()) return;
-  if(!this->get_range_status()) return;
+  if (!this->get_range_status()) return;
+
+  this->have_new_data_set_ = true;
 
   if (!this->start_ranging()) {
+    this->error_code_ = START_RANGING_FAILED;
     this->mark_failed();
     return;
   }
+  
+  if ( this->status_has_warning() ) this->status_clear_warning();
+
+  this->last_loop_time_ = millis();
 }
 
 void VL53L1XComponent::update() {
-  this->running_update_ = true;
   if ((this->distance_== 0) || (this->range_status_ == UNDEFINED)) {
     ESP_LOGV(TAG, "No Range data yet !");
-    this->running_update_ = false;
     return;
   }
 
-  if (this->distance_sensor_ != nullptr)
-    this->distance_sensor_->publish_state(this->distance_);
-  if (this->range_status_sensor_ != nullptr)
-    this->range_status_sensor_->publish_state(this->range_status_);
-
-  this->running_update_ = false;
+  if (this->distance_sensor_ != nullptr) {
+    if (this->have_new_data_set_) 
+      this->distance_sensor_->publish_state(this->distance_);
+    else
+      this->distance_sensor_->publish_state(NAN);
+  }
+  
+  if (this->range_status_sensor_ != nullptr) {
+    if (this->have_new_data_set_) 
+      this->range_status_sensor_->publish_state(this->range_status_);
+    else
+      this->range_status_sensor_->publish_state(NAN);
+  }
+  
+  this->have_new_data_set_ = false;
 }
 
 bool VL53L1XComponent::clear_interrupt() {
@@ -486,6 +520,7 @@ bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
   if (!this->vl53l1x_read_byte(GPIO_HV_MUX__CTRL, &ctl)) {
     ESP_LOGW(TAG, "Error reading Interrupt Polarity");
     this->status_set_warning();
+    *is_dataready = false;
     return false;
   }
   ctl = ctl & 0x10;
@@ -494,6 +529,7 @@ bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
   if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &status)) {
     ESP_LOGW(TAG, "Error reading Data Ready");
     this->status_set_warning();
+    *is_dataready = false;
     return false;
   }
   *is_dataready =((status & 1) == int_polarity);

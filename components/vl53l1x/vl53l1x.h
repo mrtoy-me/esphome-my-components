@@ -86,11 +86,12 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   bool vl53l1x_read_byte_16(uint16_t a_register, uint16_t *data);
   bool vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len);
   
-  //uint32_t last_loop_time_{0};
+  uint32_t last_loop_time_{0};
+
   bool distance_mode_overriden_{false};
-  bool running_update_{false};
+  bool have_new_data_set_ {false};
+  
   uint16_t sensor_id_{0};
-  bool new_data_is_ready_ {false};
 
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *range_status_sensor_{nullptr};
