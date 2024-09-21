@@ -440,18 +440,24 @@ void VL53L1XComponent::loop() {
   }
 
   // data ready now
-  if (!this->get_distance(&this->distance_)) return;
-  if (!this->clear_interrupt()) return;
-  
-  if (!this->stop_ranging()) return;
-  if (!this->get_range_status()) return;
+  //if (!this->get_distance(&this->distance_)) return;
+  this->have_new_data_set_ =  this->get_distance(&this->distance_));
+  this->get_range_status());
 
-  this->have_new_data_set_ = true;
-
-  if (!this->start_ranging()) {
-    this->error_code_ = START_RANGING_FAILED;
+  if (!this->clear_interrupt()) 
+    this->error_code_ = CLEAR_INTERRUPT_FAILED;
     this->mark_failed();
-    return;
+  return;
+  
+  //if (!this->stop_ranging()) return;
+  //if (!this->get_range_status()) return;
+
+  //this->have_new_data_set_ = true;
+
+  //if (!this->start_ranging()) {
+  //  this->error_code_ = START_RANGING_FAILED;
+  //  this->mark_failed();
+  //  return;
   }
   
   if ( this->status_has_warning() ) this->status_clear_warning();
