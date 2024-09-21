@@ -436,46 +436,31 @@ void VL53L1XComponent::loop() {
 
   if (!is_dataready) {
     this->last_loop_time_ = millis();
-     //ESP_LOGD(TAG, "next loop time");
     return;
   }
-  //ESP_LOGD(TAG, "got data");
-  // data ready now
-  //if (!this->get_distance(&this->distance_)) return;
-  if ( !this->get_distance(&this->distance_) ) {
+  
+  // data ready now so read distance and range
+  this->have_new_distance_ = this->get_distance(&this->distance_);
+  if (!this->have_new_distance_) {
     ESP_LOGW(TAG, "Error reading distance");
     this->status_set_warning();
   }
 
-  if ( !this->get_range_status() ) {
+  this->have_new_range_status_ = this->get_range_status();
+  if ( !this->have_new_range_status_ ) {
     ESP_LOGW(TAG, "Error reading range status");
     this->status_set_warning();
   }
 
-  this->have_new_data_set_ = true;
-  
-  if ( this->status_has_warning() ) this->status_clear_warning();
+  if ( this->status_has_warning() && (this->have_new_distance_) && (this->have_new_range_status_) ) this->status_clear_warning();
 
   this->last_loop_time_ = millis();
-
-  //if ( !this->clear_interrupt() ) {
-  //  this->error_code_ = CLEAR_INTERRUPT_FAILED;
-  //  this->mark_failed();
-  //  return;
-  //}
-
-
-  //if (!this->stop_ranging()) return;
-  //if (!this->get_range_status()) return;
-
-  //this->have_new_data_set_ = true;
 
   if (!this->start_oneshot_ranging()) {
     this->error_code_ = START_RANGING_FAILED;
     this->mark_failed();
     return;
   }
-
 }
 
 void VL53L1XComponent::update() {
@@ -485,20 +470,21 @@ void VL53L1XComponent::update() {
   }
 
   if (this->distance_sensor_ != nullptr) {
-    if (this->have_new_data_set_) 
+    if (this->have_new_distance_) 
       this->distance_sensor_->publish_state(this->distance_);
     else
       this->distance_sensor_->publish_state(NAN);
   }
   
   if (this->range_status_sensor_ != nullptr) {
-    if (this->have_new_data_set_) 
+    if (this->have_new_range_status_) 
       this->range_status_sensor_->publish_state(this->range_status_);
     else
       this->range_status_sensor_->publish_state(NAN);
   }
   
-  this->have_new_data_set_ = false;
+  this->have_new_distance_ = false;
+  this->have_new_range_status_ = false;
 }
 
 bool VL53L1XComponent::clear_interrupt() {
