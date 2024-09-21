@@ -337,7 +337,7 @@ void VL53L1XComponent::setup() {
     return;
   }
 
-  if (!this->start_ranging()) {
+  if (!this->start_oneshot_ranging()) {
     this->error_code_ = START_RANGING_FAILED;
     this->mark_failed();
     return;
@@ -436,33 +436,46 @@ void VL53L1XComponent::loop() {
 
   if (!is_dataready) {
     this->last_loop_time_ = millis();
+     //ESP_LOGD(TAG, "next loop time");
     return;
   }
-
+  //ESP_LOGD(TAG, "got data");
   // data ready now
   //if (!this->get_distance(&this->distance_)) return;
-  this->have_new_data_set_ =  this->get_distance(&this->distance_));
-  this->get_range_status());
+  if ( !this->get_distance(&this->distance_) ) {
+    ESP_LOGW(TAG, "Error reading distance");
+    this->status_set_warning();
+  }
 
-  if (!this->clear_interrupt()) 
-    this->error_code_ = CLEAR_INTERRUPT_FAILED;
-    this->mark_failed();
-  return;
+  if ( !this->get_range_status() ) {
+    ESP_LOGW(TAG, "Error reading range status");
+    this->status_set_warning();
+  }
+
+  this->have_new_data_set_ = true;
   
+  if ( this->status_has_warning() ) this->status_clear_warning();
+
+  this->last_loop_time_ = millis();
+
+  //if ( !this->clear_interrupt() ) {
+  //  this->error_code_ = CLEAR_INTERRUPT_FAILED;
+  //  this->mark_failed();
+  //  return;
+  //}
+
+
   //if (!this->stop_ranging()) return;
   //if (!this->get_range_status()) return;
 
   //this->have_new_data_set_ = true;
 
-  //if (!this->start_ranging()) {
-  //  this->error_code_ = START_RANGING_FAILED;
-  //  this->mark_failed();
-  //  return;
+  if (!this->start_oneshot_ranging()) {
+    this->error_code_ = START_RANGING_FAILED;
+    this->mark_failed();
+    return;
   }
-  
-  if ( this->status_has_warning() ) this->status_clear_warning();
 
-  this->last_loop_time_ = millis();
 }
 
 void VL53L1XComponent::update() {
@@ -503,6 +516,18 @@ bool VL53L1XComponent::start_ranging() {
 
   if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x40)) {
     ESP_LOGW(TAG, "Error writing Start Ranging");
+    this->status_set_warning();
+    return false;
+  }
+  return true;
+}
+
+bool VL53L1XComponent::start_oneshot_ranging() {
+  // first clear interrupt 
+  if (!clear_interrupt()) return false;
+
+  if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x10)) {
+    ESP_LOGW(TAG, "Error writing Start Oneshot Ranging");
     this->status_set_warning();
     return false;
   }

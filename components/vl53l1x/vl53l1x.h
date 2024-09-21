@@ -57,6 +57,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
 
   bool clear_interrupt();
   bool start_ranging();
+  bool start_oneshot_ranging();
   bool stop_ranging();
   bool check_for_dataready(bool *is_dataready);
   
