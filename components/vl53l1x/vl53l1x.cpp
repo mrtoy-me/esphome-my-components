@@ -427,8 +427,8 @@ void VL53L1XComponent::dump_config() {
 void VL53L1XComponent::loop() {
   bool is_dataready;
 
-  // only run loop if not updating and every LOOP_TIME
-  if ( ((millis() - this->last_loop_time_) < LOOP_TIME) || this->is_failed() ) return;
+  // only run loop if not failed and every LOOP_TIME
+  if ( this->is_failed() || ((millis() - this->last_loop_time_) < LOOP_TIME) ) return;
 
   if (!this->check_for_dataready(&is_dataready)) {
     return;
@@ -456,7 +456,7 @@ void VL53L1XComponent::loop() {
 
   this->last_loop_time_ = millis();
 
-  if (!this->start_oneshot_ranging()) {
+  if ( !this->start_oneshot_ranging() ) {
     this->error_code_ = START_RANGING_FAILED;
     this->mark_failed();
     return;
@@ -464,27 +464,23 @@ void VL53L1XComponent::loop() {
 }
 
 void VL53L1XComponent::update() {
-  if ((this->distance_== 0) || (this->range_status_ == UNDEFINED)) {
-    ESP_LOGV(TAG, "No Range data yet !");
-    return;
-  }
-
   if (this->distance_sensor_ != nullptr) {
-    if (this->have_new_distance_) 
+    if (this->have_new_distance_) {
       this->distance_sensor_->publish_state(this->distance_);
-    else
+      this->have_new_distance_ = false;
+    } else {
       this->distance_sensor_->publish_state(NAN);
+    }
   }
   
   if (this->range_status_sensor_ != nullptr) {
-    if (this->have_new_range_status_) 
+    if (this->have_new_range_status_) {
       this->range_status_sensor_->publish_state(this->range_status_);
-    else
+      this->have_new_range_status_ = false;
+    } else {
       this->range_status_sensor_->publish_state(NAN);
+    }
   }
-  
-  this->have_new_distance_ = false;
-  this->have_new_range_status_ = false;
 }
 
 bool VL53L1XComponent::clear_interrupt() {
