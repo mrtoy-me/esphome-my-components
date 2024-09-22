@@ -18,6 +18,9 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   void set_range_status_sensor(sensor::Sensor *range_status_sensor) { range_status_sensor_ = range_status_sensor; }
   void config_distance_mode(DistanceMode distance_mode ) { distance_mode_ = distance_mode; }
 
+  bool soft_reset();
+  bool initialise();
+
   void setup() override;
   void dump_config() override;
   void update() override;
@@ -40,6 +43,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
 
   enum ErrorCode {
     NONE = 0,
+    SOFT_RESET_FAILED,
     BOOT_STATE_FAILED,
     BOOT_TIMEOUT,
     CONFIGURATION_FAILED,

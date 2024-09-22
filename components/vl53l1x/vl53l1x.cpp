@@ -211,13 +211,29 @@ static const uint16_t TIMING_BUDGET = 500;  // new timing budget is maximum allo
 static const uint16_t LOOP_TIME     =  90;  // do loop every this ms
 
 // Sensor Initialisation
-void VL53L1XComponent::setup() {
-  
+
+bool VL53L1XComponent::soft_reset() {
   uint32_t start_time, elapsed_time;
   uint8_t state = 0;
-  uint16_t addr;
-  bool is_dataready;
 
+  if (!this->vl53l1x_write_byte(SOFT_RESET, 0x00)) {
+    this->error_code_ = SOFT_RESET_FAILED;
+    this->mark_failed();
+    return false;
+  }
+
+  delayMicroseconds(100);
+
+  if (!this->vl53l1x_write_byte(SOFT_RESET, 0x01)) {
+    this->error_code_ = SOFT_RESET_FAILED;
+    this->mark_failed();
+    return false;
+  }
+  
+  // give it some time to boot; otherwise the sensor NACKs 
+  delay(1);
+  
+  // now wait for sensor to boot successfully
   start_time = millis();
   elapsed_time = 0;
   while (elapsed_time < INIT_TIMEOUT) {
@@ -225,7 +241,7 @@ void VL53L1XComponent::setup() {
       if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
         this->error_code_ = BOOT_STATE_FAILED;
         this->mark_failed();
-        return;
+        return false;
       }
       if (state) break;
     }
@@ -235,29 +251,37 @@ void VL53L1XComponent::setup() {
   if (!state) {
     this->error_code_ = BOOT_TIMEOUT;
     this->mark_failed();
-    return;
+    return false;
   }
- 
+
+  return true;
+}
+
+bool VL53L1XComponent::initialise() {
+  uint16_t addr;
+  uint32_t start_time, elapsed_time;
+  bool is_dataready;
+
   for (addr = 0x002D; addr <= 0x0087; addr++) {
     if (!this->vl53l1x_write_byte(addr,VL51L1X_DEFAULT_CONFIGURATION[addr - 0x002D])) {
       ESP_LOGE(TAG, "Error writing default configuration: address = 0x%X", addr);
       this->error_code_ = CONFIGURATION_FAILED;
       this->mark_failed();
-      return;
+      return false;
     }
   }
   
   if (!this->vl53l1x_read_byte_16(VL53L1_IDENTIFICATION__MODEL_ID, &this->sensor_id_)) {
     this->error_code_ = COMMUNICATION_FAILED;
     this->mark_failed();
-    return;
+    return false ;
   }
 
   // 0xEACC = VL53L1X, 0xEBAA = VL53L4CD
   if ((this->sensor_id_ != 0xEACC) && (this->sensor_id_ != 0xEBAA)) {
     this->error_code_ = WRONG_CHIP_ID;
     this->mark_failed();
-    return; 
+    return false; 
   }
 
   // 0xEBAA = VL53L4CD must run with SHORT distance mode
@@ -270,7 +294,7 @@ void VL53L1XComponent::setup() {
   if (!this->start_ranging()) {
     this->error_code_ = START_RANGING_FAILED;
     this->mark_failed();
-    return;
+    return false;
   }
 
   start_time = millis();
@@ -291,64 +315,76 @@ void VL53L1XComponent::setup() {
   if (!is_dataready) {
     this->error_code_ = DATA_READY_TIMEOUT;
     this->mark_failed();
-    return;
+    return false;
   }
 
   if (!this->clear_interrupt()) {
     this->error_code_ = CLEAR_INTERRUPT_FAILED;
     this->mark_failed();
-    return;
+    return false;
   }
 
   if (!this->stop_ranging()) {
     this->error_code_ = STOP_RANGING_FAILED;
     this->mark_failed();
-    return;
+    return false;
   }
 
   if (!this->write_byte(VL53L1_VHV_CONFIG__TIMEOUT_MACROP_LOOP_BOUND, 0x09)) {
     ESP_LOGW(TAG, "Error writing Config Timeout Macro");
     this->error_code_ = COMMUNICATION_FAILED;
     this->mark_failed();
-    return;
+    return false;
   }
   if (!this->write_byte(VL53L1_START_VHV_FROM_PREVIOUS_TEMPERATURE, 0x00))  {
     ESP_LOGW(TAG, "Error writing Start VHV from the Previous Temperature");
     this->error_code_ = COMMUNICATION_FAILED;
     this->mark_failed();
-    return;
+    return false;
   }
 
   if (!this->set_timing_budget(TIMING_BUDGET)) {
     this->error_code_ = TIMING_BUDGET_FAILED;
     this->mark_failed();
-    return;
+    return false;
   }
 
   if (!this->set_intermeasurement_period(TIMING_BUDGET)) {
     this->error_code_ = INTERM_PERIOD_FAILED;
     this->mark_failed();
-    return;
+    return false;
   }
 
   if (!this->set_distance_mode(this->distance_mode_)) {
     this->error_code_ = DISTANCE_MODE_FAILED;
     this->mark_failed();
-    return;
+    return false;
   }
 
   if (!this->start_oneshot_ranging()) {
     this->error_code_ = START_RANGING_FAILED;
     this->mark_failed();
-    return;
+    return false;
   }
+  
+  return true;
+}
 
+void VL53L1XComponent::setup() {
+  // do a soft reset and wait for sensor to boot
+  if (!this->soft_reset()) return;
+
+  // configure and initialise sensor
+  if (!this->initialise()) return;
 }
 
 void VL53L1XComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "VL53L1X:");
 
   switch (this->error_code_) {
+    case SOFT_RESET_FAILED:
+      ESP_LOGE(TAG, "  Soft Reset communication error");
+      break;
     case BOOT_STATE_FAILED:
       ESP_LOGE(TAG, "  Boot State communication error");
       break;
