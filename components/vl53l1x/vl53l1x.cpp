@@ -305,7 +305,7 @@ bool VL53L1XComponent::initialise() {
       if (!this->check_for_dataready(&is_dataready)) {
         this->error_code_ = DATA_READY_FAILED;
         this->mark_failed();
-        return;
+        return false;
       }
       if (is_dataready) break;
     }
