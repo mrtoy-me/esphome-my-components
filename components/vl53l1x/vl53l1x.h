@@ -20,6 +20,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
 
   bool soft_reset();
   bool initialise();
+  void restart();
 
   void setup() override;
   void dump_config() override;

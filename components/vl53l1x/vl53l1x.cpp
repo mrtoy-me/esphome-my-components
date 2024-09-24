@@ -374,6 +374,14 @@ bool VL53L1XComponent::initialise() {
   return true;
 }
 
+void VL53L1XComponent::restart() {
+  // do a soft reset and wait for sensor to boot
+  if (!this->soft_reset()) return;
+
+  // configure and initialise sensor
+  if (!this->initialise()) return;
+}
+
 void VL53L1XComponent::setup() {
   // do a soft reset and wait for sensor to boot
   if (!this->soft_reset()) return;
