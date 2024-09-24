@@ -217,6 +217,7 @@ bool VL53L1XComponent::soft_reset() {
   uint8_t state = 0;
 
   if (!this->vl53l1x_write_byte(SOFT_RESET, 0x00)) {
+    ESP_LOGE(TAG, "Error writing soft reset 0");
     this->error_code_ = SOFT_RESET_FAILED;
     this->mark_failed();
     return false;
@@ -225,6 +226,7 @@ bool VL53L1XComponent::soft_reset() {
   delayMicroseconds(100);
 
   if (!this->vl53l1x_write_byte(SOFT_RESET, 0x01)) {
+    ESP_LOGE(TAG, "Error writing soft reset 1");
     this->error_code_ = SOFT_RESET_FAILED;
     this->mark_failed();
     return false;
@@ -239,6 +241,7 @@ bool VL53L1XComponent::soft_reset() {
   while (elapsed_time < INIT_TIMEOUT) {
     if ((elapsed_time % 2) == 0) {
       if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
+        ESP_LOGE(TAG, "Error reading boot state");
         this->error_code_ = BOOT_STATE_FAILED;
         this->mark_failed();
         return false;
@@ -249,6 +252,7 @@ bool VL53L1XComponent::soft_reset() {
   }
 
   if (!state) {
+    ESP_LOGE(TAG, "boot state timeout");
     this->error_code_ = BOOT_TIMEOUT;
     this->mark_failed();
     return false;
