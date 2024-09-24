@@ -213,9 +213,6 @@ static const uint16_t LOOP_TIME     =  90;  // do loop every this ms
 // Sensor Initialisation
 
 bool VL53L1XComponent::soft_reset() {
-  uint32_t start_time, elapsed_time;
-  uint8_t state = 0;
-
   if (!this->vl53l1x_write_byte(SOFT_RESET, 0x00)) {
     ESP_LOGE(TAG, "Error writing soft reset 0");
     this->error_code_ = SOFT_RESET_FAILED;
@@ -236,25 +233,20 @@ bool VL53L1XComponent::soft_reset() {
   delay(1);
   
   // now wait for sensor to boot successfully
-  start_time = millis();
-  elapsed_time = 0;
-  while (elapsed_time < INIT_TIMEOUT) {
-    if ((elapsed_time % 2) == 0) {
-      if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
-        ESP_LOGE(TAG, "Error reading boot state");
-        this->error_code_ = BOOT_STATE_FAILED;
-        this->mark_failed();
-        return false;
-      }
-      if (state) break;
+  this->set_timeout(INIT_TIMEOUT, [this]() { 
+    uint8_t state = 0;
+    if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
+      this->error_code_ = BOOT_STATE_FAILED;
+      this->mark_failed();
     }
-    elapsed_time = millis() - start_time;
-  }
+    if (!state) {
+      this->error_code_ = BOOT_TIMEOUT;
+      this->mark_failed(); 
+    }
+  });
 
-  if (!state) {
-    ESP_LOGE(TAG, "boot state timeout");
-    this->error_code_ = BOOT_TIMEOUT;
-    this->mark_failed();
+  if (this->error_code_ != NONE) {
+    ESP_LOGE(TAG, "Soft Reset error waiting for sensor to boot");
     return false;
   }
 
@@ -263,8 +255,6 @@ bool VL53L1XComponent::soft_reset() {
 
 bool VL53L1XComponent::initialise() {
   uint16_t addr;
-  uint32_t start_time, elapsed_time;
-  bool is_dataready;
 
   for (addr = 0x002D; addr <= 0x0087; addr++) {
     if (!this->vl53l1x_write_byte(addr,VL51L1X_DEFAULT_CONFIGURATION[addr - 0x002D])) {
@@ -301,24 +291,20 @@ bool VL53L1XComponent::initialise() {
     return false;
   }
 
-  start_time = millis();
-  elapsed_time = 0;
-  while (elapsed_time < INIT_TIMEOUT ) {
-    // ranging started now wait for data ready
-    if ((elapsed_time % 2) == 0) {
-      if (!this->check_for_dataready(&is_dataready)) {
-        this->error_code_ = DATA_READY_FAILED;
-        this->mark_failed();
-        return false;
-      }
-      if (is_dataready) break;
+  this->set_timeout(INIT_TIMEOUT, [this]() { 
+    bool is_dataready;
+    if (!this->check_for_dataready(&is_dataready)) {
+      this->error_code_ = DATA_READY_FAILED;
+      this->mark_failed();
     }
-    elapsed_time = millis() - start_time;
-  }
+    if (!is_dataready) {
+      this->error_code_ = DATA_READY_TIMEOUT;
+      this->mark_failed(); 
+    }
+  });
 
-  if (!is_dataready) {
-    this->error_code_ = DATA_READY_TIMEOUT;
-    this->mark_failed();
+  if (this->error_code_ != NONE) {
+     ESP_LOGE(TAG, "Initialise error waiting for data ready");
     return false;
   }
 
