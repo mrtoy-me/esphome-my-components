@@ -16,6 +16,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
  public:
   void set_distance_sensor(sensor::Sensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   void set_range_status_sensor(sensor::Sensor *range_status_sensor) { range_status_sensor_ = range_status_sensor; }
+  void set_timeout_sensor(sensor::Sensor *timeout_sensor) { timeout_sensor_ = timeout_sensor; }
   void config_distance_mode(DistanceMode distance_mode ) { distance_mode_ = distance_mode; }
 
   bool soft_reset();
@@ -93,8 +94,11 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   bool vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len);
   
   uint32_t last_loop_time_{0};
+  uint32_t start_ranging_time_{0};
+  uint32_t number_timeouts_ {0};
 
   bool distance_mode_overriden_{false};
+  bool run_loop_ {false};
   bool have_new_distance_ {false};
   bool have_new_range_status_ {false};
 
@@ -102,6 +106,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
 
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *range_status_sensor_{nullptr};
+  sensor::Sensor *timeout_sensor_{nullptr};
 };
 
 }  // namespace vl53l1x
