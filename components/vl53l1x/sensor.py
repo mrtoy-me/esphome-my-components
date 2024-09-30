@@ -24,7 +24,6 @@ DISTANCE_MODES = {
 
 CONF_DISTANCE_MODE = "distance_mode"
 CONF_RANGE_STATUS = "range_status"
-CONF_DATAREADY_TIMEOUT ="dataready_timeout"
 UNIT_MILLIMETER ="mm"
 
 CONFIG_SCHEMA = (
@@ -41,10 +40,6 @@ CONFIG_SCHEMA = (
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
             cv.Optional(CONF_RANGE_STATUS): sensor.sensor_schema(
-                accuracy_decimals=0,
-                state_class=STATE_CLASS_MEASUREMENT,
-            ),
-            cv.Optional(CONF_DATAREADY_TIMEOUT): sensor.sensor_schema(
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
@@ -65,9 +60,5 @@ async def to_code(config):
     if CONF_RANGE_STATUS in config:
         sens = await sensor.new_sensor(config[CONF_RANGE_STATUS])    
         cg.add(var.set_range_status_sensor(sens))
-
-    if CONF_DATAREADY_TIMEOUT in config:
-        sens = await sensor.new_sensor(config[CONF_DATAREADY_TIMEOUT])    
-        cg.add(var.set_timeout_sensor(sens))
 
     cg.add(var.config_distance_mode(config[CONF_DISTANCE_MODE]))
