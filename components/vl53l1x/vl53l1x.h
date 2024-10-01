@@ -33,7 +33,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
 
  protected:
   DistanceMode distance_mode_{LONG};
-  TimingBudget timing_budget_{TIMING_BUDGET_100MS};
+  TimingBudget timing_budget_{TIMING_BUDGET_200MS};
 
   uint16_t distance_{0};
   
@@ -63,6 +63,18 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
     INTERM_PERIOD_FAILED,
     DISTANCE_MODE_FAILED,
   } error_code_{NONE};
+
+  
+  // Internal state machine to make sure no blocking execution in loop()
+  enum State {
+    STARTING_UP = 0,
+    SETUP_COMPLETE,
+    IDLE,
+    RANGING_STARTED,
+    WAITING_FOR_RANGING,
+    CHECK_DATAREADY,
+    READY_TO_PUBLISH,
+  } state_{STARTING_UP};
 
   bool clear_interrupt();
   bool start_ranging();
@@ -96,10 +108,8 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   bool vl53l1x_read_byte_16(uint16_t a_register, uint16_t *data);
   bool vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len);
   
-  uint16_t data_ready_timeout_{0};
-
-  uint32_t start_ranging_time_{0};
-  uint32_t number_timeouts_ {0};
+  uint16_t data_ready_retries_{0};
+  uint16_t time_to_wait_for_ranging_{0};
 
   bool distance_mode_overriden_{false};
   bool have_new_distance_ {false};

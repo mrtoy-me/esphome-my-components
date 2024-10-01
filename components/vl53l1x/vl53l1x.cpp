@@ -206,7 +206,8 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
   0x00  /* 0x87 : start ranging, use StartRanging() or StopRanging(), If you want an automatic start after VL53L1X_init() call, put 0x40 in location 0x87 */
 };
 
-static const uint16_t INIT_TIMEOUT      = 150;  // default timing budget = 100ms, so 150ms should be more than enough time
+static const uint16_t INIT_TIMEOUT        = 150;  // default timing budget = 100ms, so 150ms should be more than enough time
+static const uint16_t MAX_DATAREADY_TRIES = 5; 
 
 void VL53L1XComponent::setup() {
   uint32_t start_time, elapsed_time;
@@ -359,9 +360,8 @@ void VL53L1XComponent::setup() {
     this->mark_failed();
     return;
   }
-  
-  this->data_ready_timeout_ = this->timing_budget_ + (this->timing_budget_ / 2);
-  this->start_ranging_time_ = millis();
+  this->state_ = SETUP_COMPLETE;
+  this->time_to_wait_for_ranging_ = this->timing_budget_;
 }
 
 void VL53L1XComponent::dump_config() {
@@ -451,42 +451,88 @@ void VL53L1XComponent::loop() {
 
   // only run loop if not failed
   if ( this->is_failed() ) return;
-  
-  if (!this->check_for_dataready(&is_dataready)) {
-    ESP_LOGW(TAG, "Error reading data ready");
-    this->status_set_warning();
-    return;
-  }
 
-  if (!is_dataready) {
-    if ( (millis() - this->start_ranging_time_) >= this->data_ready_timeout_) {
-      if (this->number_timeouts_ == UINT32_MAX) this->number_timeouts_ = 0;
-      this->number_timeouts_ = this->number_timeouts_ + 1;
-      ESP_LOGD(TAG, "Data ready timeout #%i - restarting ranging",this->number_timeouts_);
-      if ( !this->start_oneshot_ranging() ) {
-        ESP_LOGE(TAG, "Error starting ranging after timeout");
-        this->error_code_ = START_RANGING_FAILED;
-        this->mark_failed();
+  switch (this->state_) {
+    case SETUP_COMPLETE:
+      this->state_ = IDLE;
+      break;
+    case IDLE:
+      // do nothing - waiting for ranging to started by VL53L1XComponent::update()  
+      break;
+    case RANGING_STARTED:
+      this->state_ = WAITING_FOR_RANGING;
+      this->set_timeout(this->time_to_wait_for_ranging_, [this]() { this->state_ = CHECK_DATAREADY; });
+      break;
+    case WAITING_FOR_RANGING:
+      // do nothing - waiting for 110% timing budget so ranging is complete
+      break;
+    case CHECK_DATAREADY:
+      if (!this->check_for_dataready(&is_dataready)) {
+        ESP_LOGW(TAG, "Error reading data ready");
+        this->status_set_warning();
+        this->state_ = IDLE;
+        break;
       }
-      this->start_ranging_time_ = millis();
-    }
-    return;
-  }
+
+      if (!is_dataready) {
+        this->data_ready_retries_ = this->data_ready_retries_ + 1;
+        if (this->data_ready_retries_ == MAX_DATAREADY_TRIES)  {
+          ESP_LOGW(TAG, "To many attempts waiting data ready");
+          this->state_ = IDLE;
+        }
+        break;
+      }
+
+      // data ready now so read distance and range
+      this->have_new_distance_ = this->get_distance(&this->distance_);
+      if (!this->have_new_distance_) {
+        ESP_LOGW(TAG, "Error reading distance");
+        this->status_set_warning();
+        break;
+      }
+
+      this->have_new_range_status_ = this->get_range_status();
+      if ( !this->have_new_range_status_ ) {
+        ESP_LOGW(TAG, "Error reading range status");
+        this->status_set_warning();
+        break;
+      }
+
+      if ( this->status_has_warning() && (this->have_new_distance_) && (this->have_new_range_status_) ) this->status_clear_warning();  
+      this->state_ = READY_TO_PUBLISH;
+      break;
+
+    case READY_TO_PUBLISH:
+      if (this->distance_sensor_ != nullptr) {
+        if (this->have_new_distance_) {
+          this->distance_sensor_->publish_state(this->distance_);
+          this->have_new_distance_ = false;
+        } else {
+          ESP_LOGD(TAG, "new distance reading not available");
+          this->distance_sensor_->publish_state(NAN);
+        }
+      }
   
-  // data ready now so read distance and range
-  this->have_new_distance_ = this->get_distance(&this->distance_);
-  if (!this->have_new_distance_) {
-    ESP_LOGW(TAG, "Error reading distance");
-    this->status_set_warning();
+      if (this->range_status_sensor_ != nullptr) {
+        if (this->have_new_range_status_) {
+          this->range_status_sensor_->publish_state(this->range_status_);
+          this->have_new_range_status_ = false;
+        } else {
+          ESP_LOGD(TAG, "new range status reading not available");
+          this->range_status_sensor_->publish_state(NAN);
+        }
+      }
+      this->state_ = IDLE;
+      break;
   }
+}
 
-  this->have_new_range_status_ = this->get_range_status();
-  if ( !this->have_new_range_status_ ) {
-    ESP_LOGW(TAG, "Error reading range status");
-    this->status_set_warning();
+void VL53L1XComponent::update() {
+  
+  if (this->data_ready_retries_ > 0) {
+    ESP_LOGD(TAG, "Data ready retries = %i", this->data_ready_retries_);
+    this->data_ready_retries_ = 0;
   }
-
-  if ( this->status_has_warning() && (this->have_new_distance_) && (this->have_new_range_status_) ) this->status_clear_warning();
 
   if ( !this->start_oneshot_ranging() ) {
     ESP_LOGE(TAG, "Error starting ranging");
@@ -494,30 +540,8 @@ void VL53L1XComponent::loop() {
     this->mark_failed();
     return;
   }
-  this->start_ranging_time_ = millis();
-}
-
-void VL53L1XComponent::update() {
   
-  if (this->distance_sensor_ != nullptr) {
-    if (this->have_new_distance_) {
-      this->distance_sensor_->publish_state(this->distance_);
-      this->have_new_distance_ = false;
-    } else {
-      ESP_LOGD(TAG, "new distance reading not available");
-      this->distance_sensor_->publish_state(NAN);
-    }
-  }
-  
-  if (this->range_status_sensor_ != nullptr) {
-    if (this->have_new_range_status_) {
-      this->range_status_sensor_->publish_state(this->range_status_);
-      this->have_new_range_status_ = false;
-    } else {
-      ESP_LOGD(TAG, "new range status reading not available");
-      this->range_status_sensor_->publish_state(NAN);
-    }
-  }
+  this->state_ = RANGING_STARTED;
 }
 
 bool VL53L1XComponent::clear_interrupt() {

@@ -43,7 +43,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_DISTANCE_MODE, default="long"): cv.enum(
                 DISTANCE_MODES, upper=False
             ),
-            cv.Optional(CONF_TIMING_BUDGET, default="100"): cv.enum(
+            cv.Optional(CONF_TIMING_BUDGET, default="500"): cv.enum(
                 TIMING_BUDGETS, int=True
             ),
             cv.Optional(CONF_DISTANCE): sensor.sensor_schema(
