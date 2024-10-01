@@ -6,26 +6,35 @@ from esphome.const import (
     CONF_DISTANCE,
     DEVICE_CLASS_DISTANCE,
     STATE_CLASS_MEASUREMENT,
+    UNIT_MILLIMETER,
 )
 
 CODEOWNERS = ["@mrtoy-me"]
 DEPENDENCIES = ["i2c"]
 
 vl53l1x_ns = cg.esphome_ns.namespace("vl53l1x")
-DistanceMode = vl53l1x_ns.enum("DistanceMode")
+
 VL53L1XComponent = vl53l1x_ns.class_(
     "VL53L1XComponent", cg.PollingComponent, i2c.I2CDevice, sensor.Sensor
 )
+DistanceMode = vl53l1x_ns.enum("DistanceMode")
 
 DISTANCE_MODES = {
     "short": DistanceMode.SHORT,
     "long": DistanceMode.LONG, 
 }
 
+TimingBudget = vl53l1x_ns.enum("TimingBudget")
+
+TIMING_BUDGETS = {
+    100 : TimingBudget.TIMING_BUDGET_100MS,
+    200 : TimingBudget.TIMING_BUDGET_200MS,
+    500 : TimingBudget.TIMING_BUDGET_500MS,
+}
+
 CONF_DISTANCE_MODE = "distance_mode"
 CONF_RANGE_STATUS = "range_status"
-CONF_DATAREADY_TIMEOUT ="dataready_timeout"
-UNIT_MILLIMETER ="mm"
+CONF_TIMING_BUDGET = "timing_budget_ms"
 
 CONFIG_SCHEMA = (
     cv.Schema(   
@@ -34,6 +43,9 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_DISTANCE_MODE, default="long"): cv.enum(
                 DISTANCE_MODES, upper=False
             ),
+            cv.Optional(CONF_TIMING_BUDGET, default="100"): cv.enum(
+                TIMING_BUDGETS, int=True
+            ),
             cv.Optional(CONF_DISTANCE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_MILLIMETER,
                 accuracy_decimals=0,
@@ -41,10 +53,6 @@ CONFIG_SCHEMA = (
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
             cv.Optional(CONF_RANGE_STATUS): sensor.sensor_schema(
-                accuracy_decimals=0,
-                state_class=STATE_CLASS_MEASUREMENT,
-            ),
-            cv.Optional(CONF_DATAREADY_TIMEOUT): sensor.sensor_schema(
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
@@ -66,8 +74,5 @@ async def to_code(config):
         sens = await sensor.new_sensor(config[CONF_RANGE_STATUS])    
         cg.add(var.set_range_status_sensor(sens))
 
-    if CONF_DATAREADY_TIMEOUT in config:
-        sens = await sensor.new_sensor(config[CONF_DATAREADY_TIMEOUT])    
-        cg.add(var.set_timeout_sensor(sens))
-
     cg.add(var.config_distance_mode(config[CONF_DISTANCE_MODE]))
+    cg.add(var.config_timing_budget(config[CONF_TIMING_BUDGET]))
