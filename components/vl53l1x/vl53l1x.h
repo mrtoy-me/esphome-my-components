@@ -33,7 +33,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
 
  protected:
   DistanceMode distance_mode_{LONG};
-  TimingBudget timing_budget_{TIMING_BUDGET_200MS};
+  TimingBudget timing_budget_{TIMING_BUDGET_500MS};
 
   uint16_t distance_{0};
   
@@ -72,8 +72,8 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
     IDLE,
     RANGING_STARTED,
     WAITING_FOR_RANGING,
-    CHECK_DATAREADY,
-    READY_TO_PUBLISH,
+    CHECK_DATA_READY,
+    READ_AND_PUBLISH,
   } state_{STARTING_UP};
 
   bool clear_interrupt();
@@ -112,8 +112,6 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   uint16_t time_to_wait_for_ranging_{0};
 
   bool distance_mode_overriden_{false};
-  bool have_new_distance_ {false};
-  bool have_new_range_status_ {false};
 
   uint16_t sensor_id_{0};
 

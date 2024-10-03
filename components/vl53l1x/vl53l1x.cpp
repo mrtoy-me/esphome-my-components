@@ -207,7 +207,7 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
 };
 
 static const uint16_t INIT_TIMEOUT        = 150;  // default timing budget = 100ms, so 150ms should be more than enough time
-static const uint16_t MAX_DATAREADY_TRIES = 5; 
+static const uint16_t MAX_DATAREADY_TRIES = 4; 
 
 void VL53L1XComponent::setup() {
   uint32_t start_time, elapsed_time;
@@ -456,17 +456,21 @@ void VL53L1XComponent::loop() {
     case SETUP_COMPLETE:
       this->state_ = IDLE;
       break;
+
     case IDLE:
       // do nothing - waiting for ranging to started by VL53L1XComponent::update()  
       break;
+
     case RANGING_STARTED:
       this->state_ = WAITING_FOR_RANGING;
-      this->set_timeout(this->time_to_wait_for_ranging_, [this]() { this->state_ = CHECK_DATAREADY; });
+      this->set_timeout(this->time_to_wait_for_ranging_, [this]() { this->state_ = CHECK_DATA_READY; });
       break;
+
     case WAITING_FOR_RANGING:
       // do nothing - waiting for 110% timing budget so ranging is complete
       break;
-    case CHECK_DATAREADY:
+
+    case CHECK_DATA_READY:
       if (!this->check_for_dataready(&is_dataready)) {
         ESP_LOGW(TAG, "Error reading data ready");
         this->status_set_warning();
@@ -483,47 +487,40 @@ void VL53L1XComponent::loop() {
         break;
       }
 
-      // data ready now so read distance and range
-      this->have_new_distance_ = this->get_distance(&this->distance_);
-      if (!this->have_new_distance_) {
-        ESP_LOGW(TAG, "Error reading distance");
-        this->status_set_warning();
-        break;
-      }
-
-      this->have_new_range_status_ = this->get_range_status();
-      if ( !this->have_new_range_status_ ) {
-        ESP_LOGW(TAG, "Error reading range status");
-        this->status_set_warning();
-        break;
-      }
-
-      if ( this->status_has_warning() && (this->have_new_distance_) && (this->have_new_range_status_) ) this->status_clear_warning();  
-      this->state_ = READY_TO_PUBLISH;
-      break;
-
-    case READY_TO_PUBLISH:
       if (this->distance_sensor_ != nullptr) {
-        if (this->have_new_distance_) {
-          this->distance_sensor_->publish_state(this->distance_);
-          this->have_new_distance_ = false;
-        } else {
-          ESP_LOGD(TAG, "new distance reading not available");
+        // read new distance
+        if ( !this->get_distance(&this->distance_) ) {
+          ESP_LOGW(TAG, "Error reading distance");
           this->distance_sensor_->publish_state(NAN);
+          this->status_set_warning();
+          this->state_ = IDLE;
+          break;
         }
+
+        this->distance_sensor_->publish_state(this->distance_);
       }
   
       if (this->range_status_sensor_ != nullptr) {
-        if (this->have_new_range_status_) {
-          this->range_status_sensor_->publish_state(this->range_status_);
-          this->have_new_range_status_ = false;
-        } else {
-          ESP_LOGD(TAG, "new range status reading not available");
+        // read new range status
+        if ( !this->get_range_status() ) {
+          ESP_LOGW(TAG, "Error reading range status");
           this->range_status_sensor_->publish_state(NAN);
+          this->status_set_warning();
+          this->state_ = IDLE;
+          break;
         }
+        
+        this->range_status_sensor_->publish_state(this->range_status_);
       }
+
+      if (this->status_has_warning()) this->status_clear_warning();  
       this->state_ = IDLE;
       break;
+      //this->state_ = READ_AND_PUBLISH;
+      //break;
+
+    //case READ_AND_PUBLISH:
+      
   }
 }
 
