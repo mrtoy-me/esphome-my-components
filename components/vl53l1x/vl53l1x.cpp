@@ -207,7 +207,8 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
 };
 
 static const uint16_t INIT_TIMEOUT        = 150;  // default timing budget = 100ms, so 150ms should be more than enough time
-static const uint16_t MAX_DATAREADY_TRIES = 4; 
+static const uint16_t TIMING_BUDGET       = 500;
+static const uint16_t MAX_DATAREADY_TRIES = 4;
 
 void VL53L1XComponent::setup() {
   uint32_t start_time, elapsed_time;
@@ -337,13 +338,13 @@ void VL53L1XComponent::setup() {
     return;
   }
 
-  if (!this->set_timing_budget(this->timing_budget_)) {
+  if (!this->set_timing_budget(TIMING_BUDGET)) {
     this->error_code_ = TIMING_BUDGET_FAILED;
     this->mark_failed();
     return;
   }
 
-  if (!this->set_intermeasurement_period(this->timing_budget_)) {
+  if (!this->set_intermeasurement_period(TIMING_BUDGET)) {
     this->error_code_ = INTERM_PERIOD_FAILED;
     this->mark_failed();
     return;
@@ -355,13 +356,13 @@ void VL53L1XComponent::setup() {
     return;
   }
 
-  if (!this->start_oneshot_ranging()) {
-    this->error_code_ = START_RANGING_FAILED;
-    this->mark_failed();
-    return;
-  }
+  // if (!this->start_oneshot_ranging()) {
+  //   this->error_code_ = START_RANGING_FAILED;
+  //   this->mark_failed();
+  //   return;
+  // }
   this->state_ = SETUP_COMPLETE;
-  this->time_to_wait_for_ranging_ = this->timing_budget_;
+  this->time_to_wait_for_ranging_ = TIMING_BUDGET;
 }
 
 void VL53L1XComponent::dump_config() {
@@ -430,8 +431,8 @@ void VL53L1XComponent::dump_config() {
           ESP_LOGCONFIG(TAG, "  Distance Mode: LONG");
         }
       }
-      ESP_LOGD(TAG, "  Timing Budget: %ims",this->timing_budget_);
-      ESP_LOGD(TAG, "  Intermediate Period: %ims",this->timing_budget_);
+      ESP_LOGD(TAG, "  Timing Budget: %ims",TIMING_BUDGET);
+      ESP_LOGD(TAG, "  Intermediate Period: %ims",TIMING_BUDGET);
       
       LOG_I2C_DEVICE(this);
       LOG_UPDATE_INTERVAL(this);
@@ -487,6 +488,10 @@ void VL53L1XComponent::loop() {
         break;
       }
 
+      this->state_ = READ_AND_PUBLISH;
+      break;
+
+    case READ_AND_PUBLISH:
       if (this->distance_sensor_ != nullptr) {
         // read new distance
         if ( !this->get_distance(&this->distance_) ) {
@@ -516,16 +521,17 @@ void VL53L1XComponent::loop() {
       if (this->status_has_warning()) this->status_clear_warning();  
       this->state_ = IDLE;
       break;
-      //this->state_ = READ_AND_PUBLISH;
-      //break;
-
-    //case READ_AND_PUBLISH:
       
   }
 }
 
 void VL53L1XComponent::update() {
   
+  if (this->state_ != IDLE) {
+    ESP_LOGD(TAG, "Too soon to start new ranging");
+    return;
+  }
+
   if (this->data_ready_retries_ > 0) {
     ESP_LOGD(TAG, "Data ready retries = %i", this->data_ready_retries_);
     this->data_ready_retries_ = 0;

@@ -12,18 +12,18 @@ enum DistanceMode {
   LONG,
 };
 
-enum TimingBudget : uint16_t {
-  TIMING_BUDGET_100MS = 100,
-  TIMING_BUDGET_200MS = 200,
-  TIMING_BUDGET_500MS = 500,
-};
+// enum TimingBudget : uint16_t {
+//   TIMING_BUDGET_100MS = 100,
+//   TIMING_BUDGET_200MS = 200,
+//   TIMING_BUDGET_500MS = 500,
+// };
 
 class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
  public:
   void set_distance_sensor(sensor::Sensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   void set_range_status_sensor(sensor::Sensor *range_status_sensor) { range_status_sensor_ = range_status_sensor; }
   void config_distance_mode(DistanceMode distance_mode ) { distance_mode_ = distance_mode; }
-  void config_timing_budget(TimingBudget timing_budget ) { timing_budget_ = timing_budget; }
+  //void config_timing_budget(TimingBudget timing_budget ) { timing_budget_ = timing_budget; }
 
   void setup() override;
   void dump_config() override;
@@ -33,7 +33,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
 
  protected:
   DistanceMode distance_mode_{LONG};
-  TimingBudget timing_budget_{TIMING_BUDGET_500MS};
+  //TimingBudget timing_budget_{TIMING_BUDGET_500MS};
 
   uint16_t distance_{0};
   
