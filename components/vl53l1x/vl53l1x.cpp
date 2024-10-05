@@ -356,11 +356,6 @@ void VL53L1XComponent::setup() {
     return;
   }
 
-  // if (!this->start_oneshot_ranging()) {
-  //   this->error_code_ = START_RANGING_FAILED;
-  //   this->mark_failed();
-  //   return;
-  // }
   this->state_ = SETUP_COMPLETE;
   this->time_to_wait_for_ranging_ = TIMING_BUDGET;
 }
@@ -432,7 +427,6 @@ void VL53L1XComponent::dump_config() {
         }
       }
       ESP_LOGD(TAG, "  Timing Budget: %ims",TIMING_BUDGET);
-      ESP_LOGD(TAG, "  Intermediate Period: %ims",TIMING_BUDGET);
       
       LOG_I2C_DEVICE(this);
       LOG_UPDATE_INTERVAL(this);
