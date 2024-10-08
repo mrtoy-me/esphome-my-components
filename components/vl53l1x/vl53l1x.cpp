@@ -497,7 +497,7 @@ void VL53L1XComponent::loop() {
     case READ_AND_PUBLISH:
       if (this->distance_sensor_ != nullptr) {
         // read new distance
-        if ( !this->get_distance(&this->distance_) ) {
+        if ( !this->get_distance() ) {
           //ESP_LOGW(TAG, "Error reading distance");
           this->distance_sensor_->publish_state(NAN);
           //this->status_set_warning();
@@ -954,7 +954,12 @@ i2c::ErrorCode VL53L1XComponent::vl53l1x_read_register(uint16_t a_register, uint
 
   buffer[0] = (uint8_t)(a_register >> 8);
   buffer[1] = (uint8_t)(a_register & 0xFF);
-  error_code = this->write(buffer, 2, false);
+
+  uint8_t max_attempts = 5;
+	for (uint8_t i = 0; i < max_attempts; i++) {
+    error_code = this->write(buffer, 2, false);
+    if (error_code == i2c::ERROR_OK) break;
+  }
 
   if (error_code == i2c::ERROR_OK) {
     return this->read(data, len);
