@@ -373,6 +373,9 @@ void VL53L1XComponent::dump_config() {
     case START_RANGING_FAILED:
       ESP_LOGE(TAG, "  Start ranging communication error");
       break;
+    case INTERRUPT_POLARITY_FAILED:
+      ESP_LOGE(TAG, "  Interrupt Polarity communication error");
+      break;
     case DATA_READY_FAILED:
       ESP_LOGE(TAG, "  Data ready communication error");
       break;
@@ -403,6 +406,12 @@ void VL53L1XComponent::dump_config() {
     case DISTANCE_MODE_FAILED:
       ESP_LOGE(TAG, "  Distance Mode communication error");
       break;
+    case GET_DISTANCE_FAILED:
+      ESP_LOGE(TAG, "  Reading Distance communication error");
+      break;
+    case GET_RANGE_STATUS_FAILED:
+      ESP_LOGE(TAG, "  Reading Range Status communication error");
+      break;  
     case NONE:
     default:
       ESP_LOGD(TAG, "  Setup successful");
@@ -468,7 +477,7 @@ void VL53L1XComponent::loop() {
     case CHECK_DATA_READY:
       if (!this->check_for_dataready(&is_dataready)) {
         ESP_LOGW(TAG, "Error reading data ready");
-        this->status_set_warning();
+        this->mark_failed();
         this->state_ = IDLE;
         break;
       }
@@ -489,9 +498,9 @@ void VL53L1XComponent::loop() {
       if (this->distance_sensor_ != nullptr) {
         // read new distance
         if ( !this->get_distance(&this->distance_) ) {
-          ESP_LOGW(TAG, "Error reading distance");
+          //ESP_LOGW(TAG, "Error reading distance");
           this->distance_sensor_->publish_state(NAN);
-          this->status_set_warning();
+          //this->status_set_warning();
           this->state_ = IDLE;
           break;
         }
@@ -543,8 +552,10 @@ void VL53L1XComponent::update() {
 
 bool VL53L1XComponent::clear_interrupt() {
   if (!this->vl53l1x_write_byte(SYSTEM__INTERRUPT_CLEAR, 0x01)) {
-    ESP_LOGW(TAG, "Error writing Clear Interrupt");
-    this->status_set_warning();
+    //ESP_LOGW(TAG, "Error writing Clear Interrupt");
+    //this->status_set_warning();
+    this->error_code_ = CLEAR_INTERRUPT_FAILED;
+    this->mark_failed();
     return false;
   }
   return true;
@@ -567,8 +578,10 @@ bool VL53L1XComponent::start_oneshot_ranging() {
   if (!clear_interrupt()) return false;
 
   if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x10)) {
-    ESP_LOGW(TAG, "Error writing Start Oneshot Ranging");
-    this->status_set_warning();
+    //ESP_LOGW(TAG, "Error writing Start Oneshot Ranging");
+    //this->status_set_warning();
+    this->error_code_ = START_RANGING_FAILED;
+    this->mark_failed();
     return false;
   }
   return true;
@@ -589,8 +602,10 @@ bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
   uint8_t int_polarity;
 
   if (!this->vl53l1x_read_byte(GPIO_HV_MUX__CTRL, &ctl)) {
-    ESP_LOGW(TAG, "Error reading Interrupt Polarity");
-    this->status_set_warning();
+    //ESP_LOGW(TAG, "Error reading Interrupt Polarity");
+    //this->status_set_warning();
+    this->error_code_ = INTERRUPT_POLARITY_FAILED;
+    this->mark_failed();
     *is_dataready = false;
     return false;
   }
@@ -598,8 +613,10 @@ bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
   int_polarity = !(ctl >> 4);
 
   if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &status)) {
-    ESP_LOGW(TAG, "Error reading Data Ready");
-    this->status_set_warning();
+    //ESP_LOGW(TAG, "Error reading Data Ready");
+    //this->status_set_warning();
+    this->error_code_ = CLEAR_INTERRUPT_FAILED;
+    this->mark_failed();
     *is_dataready = false;
     return false;
   }
@@ -850,11 +867,12 @@ bool VL53L1XComponent::get_intermeasurement_period(uint16_t *intermeasurement_ms
 
 
 
-bool VL53L1XComponent::get_distance(uint16_t *distance) {
-  if (!this->vl53l1x_read_byte_16(VL53L1_RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0,
-       distance)) {
-    ESP_LOGW(TAG, "Error reading Distance");
-    this->status_set_warning();
+bool VL53L1XComponent::get_distance() {
+  if (!this->vl53l1x_read_byte_16(VL53L1_RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0, &this->distance_)) {
+    //ESP_LOGW(TAG, "Error reading Distance");
+    this->error_code_ = GET_DISTANCE_FAILED;
+    this->mark_failed();
+    //this->status_set_warning();
     return false;
   }
   return true;
@@ -868,8 +886,10 @@ bool VL53L1XComponent::get_range_status() {
   uint8_t status;
 
   if (!this->vl53l1x_read_byte(VL53L1_RESULT__RANGE_STATUS, &status)) {
-    ESP_LOGW(TAG, "Error reading Range Status");
-    this->status_set_warning();
+    //ESP_LOGW(TAG, "Error reading Range Status");
+    this->error_code_ = GET_RANGE_STATUS_FAILED;
+    this->mark_failed();
+    //this->status_set_warning();
     return false;
   }
 
@@ -934,7 +954,7 @@ i2c::ErrorCode VL53L1XComponent::vl53l1x_read_register(uint16_t a_register, uint
 
   buffer[0] = (uint8_t)(a_register >> 8);
   buffer[1] = (uint8_t)(a_register & 0xFF);
-  error_code = this->write(buffer, 2, true);
+  error_code = this->write(buffer, 2, false);
 
   if (error_code == i2c::ERROR_OK) {
     return this->read(data, len);

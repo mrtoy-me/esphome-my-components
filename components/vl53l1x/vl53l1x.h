@@ -56,12 +56,15 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
     START_RANGING_FAILED,
     DATA_READY_FAILED,
     DATA_READY_TIMEOUT,
+    INTERRUPT_POLARITY_FAILED,
     CLEAR_INTERRUPT_FAILED,
     STOP_RANGING_FAILED,
     COMMUNICATION_FAILED,
     TIMING_BUDGET_FAILED,
     INTERM_PERIOD_FAILED,
     DISTANCE_MODE_FAILED,
+    GET_DISTANCE_FAILED,
+    GET_RANGE_STATUS_FAILED,
   } error_code_{NONE};
 
   
@@ -91,7 +94,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   bool set_intermeasurement_period(uint16_t intermeasurement_ms);
   bool get_intermeasurement_period(uint16_t *intermeasurement_ms);
 
-  bool get_distance(uint16_t *distance);
+  bool get_distance();
   bool get_range_status();
 
   i2c::ErrorCode vl53l1x_write_register(uint16_t a_register, const uint8_t *data, size_t len);
