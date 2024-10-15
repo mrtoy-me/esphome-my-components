@@ -355,7 +355,7 @@ void VL53L1XComponent::setup() {
     this->mark_failed();
     return;
   }
-
+  this->fail_count_sensor_->publish_state(this->count_of_fails_);
   this->state_ = SETUP_COMPLETE;
   this->time_to_wait_for_ranging_ = TIMING_BUDGET;
 }
@@ -477,7 +477,7 @@ void VL53L1XComponent::loop() {
     case CHECK_DATA_READY:
       if (!this->check_for_dataready(&is_dataready)) {
         ESP_LOGW(TAG, "Error reading data ready");
-        this->mark_failed();
+        //this->mark_failed();
         this->state_ = IDLE;
         break;
       }
@@ -540,6 +540,12 @@ void VL53L1XComponent::update() {
     this->data_ready_retries_ = 0;
   }
 
+  if (this->count_of_fails_ > 0) {
+    this->fail_count_sensor_->publish_state(this->count_of_fails_);
+    ESP_LOGD(TAG, "Data ready interrupt priority read fails = %i", this->count_of_fails_);
+    this->count_of_fails_ = 0;
+  }
+  
   if ( !this->start_oneshot_ranging() ) {
     ESP_LOGE(TAG, "Error starting ranging");
     this->error_code_ = START_RANGING_FAILED;
@@ -604,8 +610,11 @@ bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
   if (!this->vl53l1x_read_byte(GPIO_HV_MUX__CTRL, &ctl)) {
     //ESP_LOGW(TAG, "Error reading Interrupt Polarity");
     //this->status_set_warning();
-    this->error_code_ = INTERRUPT_POLARITY_FAILED;
-    this->mark_failed();
+    this->count_of_fails_ = this->count_of_fails_ + 1;
+    if (this->count_of_fails_ == 5) {
+      this->error_code_ = INTERRUPT_POLARITY_FAILED;
+      this->mark_failed();
+    }
     *is_dataready = false;
     return false;
   }
