@@ -6,16 +6,18 @@ from esphome.const import (
     CONF_DISTANCE,
     DEVICE_CLASS_DISTANCE,
     STATE_CLASS_MEASUREMENT,
+    UNIT_MILLIMETER,
 )
 
 CODEOWNERS = ["@mrtoy-me"]
 DEPENDENCIES = ["i2c"]
 
 vl53l1x_ns = cg.esphome_ns.namespace("vl53l1x")
-DistanceMode = vl53l1x_ns.enum("DistanceMode")
+
 VL53L1XComponent = vl53l1x_ns.class_(
     "VL53L1XComponent", cg.PollingComponent, i2c.I2CDevice, sensor.Sensor
 )
+DistanceMode = vl53l1x_ns.enum("DistanceMode")
 
 DISTANCE_MODES = {
     "short": DistanceMode.SHORT,
@@ -24,7 +26,7 @@ DISTANCE_MODES = {
 
 CONF_DISTANCE_MODE = "distance_mode"
 CONF_RANGE_STATUS = "range_status"
-UNIT_MILLIMETER ="mm"
+CONF_FAIL_COUNT = "fail_count"
 
 CONFIG_SCHEMA = (
     cv.Schema(   
@@ -40,6 +42,10 @@ CONFIG_SCHEMA = (
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
             cv.Optional(CONF_RANGE_STATUS): sensor.sensor_schema(
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_FAIL_COUNT): sensor.sensor_schema(
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
@@ -61,4 +67,9 @@ async def to_code(config):
         sens = await sensor.new_sensor(config[CONF_RANGE_STATUS])    
         cg.add(var.set_range_status_sensor(sens))
 
+    if CONF_FAIL_COUNT in config:
+        sens = await sensor.new_sensor(config[CONF_FAIL_COUNT])    
+        cg.add(var.set_fail_count_sensor(sens))
+
     cg.add(var.config_distance_mode(config[CONF_DISTANCE_MODE]))
+    

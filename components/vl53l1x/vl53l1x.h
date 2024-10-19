@@ -12,11 +12,19 @@ enum DistanceMode {
   LONG,
 };
 
+// enum TimingBudget : uint16_t {
+//   TIMING_BUDGET_100MS = 100,
+//   TIMING_BUDGET_200MS = 200,
+//   TIMING_BUDGET_500MS = 500,
+// };
+
 class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
  public:
   void set_distance_sensor(sensor::Sensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   void set_range_status_sensor(sensor::Sensor *range_status_sensor) { range_status_sensor_ = range_status_sensor; }
+  void set_fail_count_sensor(sensor::Sensor *fail_count_sensor) { fail_count_sensor_ = fail_count_sensor; }
   void config_distance_mode(DistanceMode distance_mode ) { distance_mode_ = distance_mode; }
+  //void config_timing_budget(TimingBudget timing_budget ) { timing_budget_ = timing_budget; }
 
   void setup() override;
   void dump_config() override;
@@ -26,6 +34,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
 
  protected:
   DistanceMode distance_mode_{LONG};
+  //TimingBudget timing_budget_{TIMING_BUDGET_500MS};
 
   uint16_t distance_{0};
   
@@ -40,6 +49,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
 
   enum ErrorCode {
     NONE = 0,
+    SOFT_RESET_FAILED,
     BOOT_STATE_FAILED,
     BOOT_TIMEOUT,
     CONFIGURATION_FAILED,
@@ -47,16 +57,32 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
     START_RANGING_FAILED,
     DATA_READY_FAILED,
     DATA_READY_TIMEOUT,
+    INTERRUPT_POLARITY_FAILED,
     CLEAR_INTERRUPT_FAILED,
     STOP_RANGING_FAILED,
     COMMUNICATION_FAILED,
     TIMING_BUDGET_FAILED,
     INTERM_PERIOD_FAILED,
     DISTANCE_MODE_FAILED,
+    GET_DISTANCE_FAILED,
+    GET_RANGE_STATUS_FAILED,
   } error_code_{NONE};
+
+  
+  // Internal state machine to make sure no blocking execution in loop()
+  enum State {
+    STARTING_UP = 0,
+    SETUP_COMPLETE,
+    IDLE,
+    RANGING_STARTED,
+    WAITING_FOR_RANGING,
+    CHECK_DATA_READY,
+    READ_AND_PUBLISH,
+  } state_{STARTING_UP};
 
   bool clear_interrupt();
   bool start_ranging();
+  bool start_oneshot_ranging();
   bool stop_ranging();
   bool check_for_dataready(bool *is_dataready);
   
@@ -69,7 +95,7 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   bool set_intermeasurement_period(uint16_t intermeasurement_ms);
   bool get_intermeasurement_period(uint16_t *intermeasurement_ms);
 
-  bool get_distance(uint16_t *distance);
+  bool get_distance();
   bool get_range_status();
 
   i2c::ErrorCode vl53l1x_write_register(uint16_t a_register, const uint8_t *data, size_t len);
@@ -86,14 +112,17 @@ class VL53L1XComponent : public PollingComponent, public i2c::I2CDevice {
   bool vl53l1x_read_byte_16(uint16_t a_register, uint16_t *data);
   bool vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len);
   
-  //uint32_t last_loop_time_{0};
+  uint16_t data_ready_retries_{0};
+  uint16_t time_to_wait_for_ranging_{0};
+  uint16_t count_of_fails_{0};
+
   bool distance_mode_overriden_{false};
-  bool running_update_{false};
+
   uint16_t sensor_id_{0};
-  bool new_data_is_ready_ {false};
 
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *range_status_sensor_{nullptr};
+  sensor::Sensor *fail_count_sensor_{nullptr};
 };
 
 }  // namespace vl53l1x

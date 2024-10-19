@@ -206,29 +206,56 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
   0x00  /* 0x87 : start ranging, use StartRanging() or StopRanging(), If you want an automatic start after VL53L1X_init() call, put 0x40 in location 0x87 */
 };
 
-static const uint16_t INIT_TIMEOUT  = 120;  // default timing budget = 100ms, so 250ms should be more than enough time
-static const uint16_t TIMING_BUDGET = 500;  // new timing budget is maximum allowable = 500 ms
-static const uint16_t LOOP_TIME     =  90;  // loop executes every 90ms
+static const uint16_t INIT_TIMEOUT        = 150;  // default timing budget = 100ms, so 150ms should be more than enough time
+static const uint16_t TIMING_BUDGET       = 500;
+static const uint16_t MAX_DATAREADY_TRIES = 4;
 
-// Sensor Initialisation
 void VL53L1XComponent::setup() {
+  uint32_t start_time, elapsed_time;
+
+  // reset sensor
+  if (!this->vl53l1x_write_byte(SOFT_RESET, 0x00)) {
+    ESP_LOGE(TAG, "Error writing soft reset 0");
+    this->error_code_ = SOFT_RESET_FAILED;
+    this->mark_failed();
+    return;
+  }
+
+  delayMicroseconds(100);
+
+  if (!this->vl53l1x_write_byte(SOFT_RESET, 0x01)) {
+    ESP_LOGE(TAG, "Error writing soft reset 1");
+    this->error_code_ = SOFT_RESET_FAILED;
+    this->mark_failed();
+    return;
+  }
+  
+  // give sensor time to boot
+  delayMicroseconds(1200);
+  
+  // now wait for sensor to boot successfully
+  
+  uint8_t state = 0;
+  start_time = millis();
+  elapsed_time = 0;
+  while (elapsed_time < INIT_TIMEOUT) {
+      if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
+        this->error_code_ = BOOT_STATE_FAILED;
+        this->mark_failed();
+        return;
+      if (state) break;
+    }
+    elapsed_time = millis() - start_time;
+  }
+
+  if (!state) {
+    this->error_code_ = BOOT_TIMEOUT;
+    this->mark_failed();
+    return;
+  }
+
+  // write configuration
   uint16_t addr;
-  bool is_dataready;
-
-  this->set_timeout(INIT_TIMEOUT, [this]() { 
-    uint8_t state = 0;
-    if (!this->vl53l1x_read_byte(VL53L1_FIRMWARE__SYSTEM_STATUS, &state)) {
-      this->error_code_ = BOOT_STATE_FAILED;
-      this->mark_failed();
-    }
-    if (!state) {
-      this->error_code_ = BOOT_TIMEOUT;
-      this->mark_failed(); 
-    }
-  });
-
-  if (this->error_code_ != NONE) return;
- 
   for (addr = 0x002D; addr <= 0x0087; addr++) {
     if (!this->vl53l1x_write_byte(addr,VL51L1X_DEFAULT_CONFIGURATION[addr - 0x002D])) {
       ESP_LOGE(TAG, "Error writing default configuration: address = 0x%X", addr);
@@ -263,20 +290,28 @@ void VL53L1XComponent::setup() {
     this->mark_failed();
     return;
   }
-
-  this->set_timeout(INIT_TIMEOUT, [this]() { 
-    bool is_dataready;
-    if (!this->check_for_dataready(&is_dataready)) {
-      this->error_code_ = DATA_READY_FAILED;
-      this->mark_failed();
+  
+  bool is_dataready;
+  start_time = millis();
+  elapsed_time = 0;
+  while (elapsed_time < INIT_TIMEOUT ) {
+    // ranging started now wait for data ready
+    if ((elapsed_time % 2) == 0) {
+      if (!this->check_for_dataready(&is_dataready)) {
+        this->error_code_ = DATA_READY_FAILED;
+        this->mark_failed();
+        return;
+      }
+      if (is_dataready) break;
     }
-    if (!is_dataready) {
-      this->error_code_ = DATA_READY_TIMEOUT;
-      this->mark_failed(); 
-    }
-  });
+    elapsed_time = millis() - start_time;
+  }
 
-  if (this->error_code_ != NONE) return;
+  if (!is_dataready) {
+    this->error_code_ = DATA_READY_TIMEOUT;
+    this->mark_failed();
+    return;
+  }
 
   if (!this->clear_interrupt()) {
     this->error_code_ = CLEAR_INTERRUPT_FAILED;
@@ -320,24 +355,26 @@ void VL53L1XComponent::setup() {
     this->mark_failed();
     return;
   }
-
-  if (!this->start_ranging()) {
-    this->error_code_ = COMMUNICATION_FAILED;
-    this->mark_failed();
-    return;
-  }
-
+  this->fail_count_sensor_->publish_state(this->count_of_fails_);
+  this->state_ = SETUP_COMPLETE;
+  this->time_to_wait_for_ranging_ = TIMING_BUDGET;
 }
 
 void VL53L1XComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "VL53L1X:");
 
   switch (this->error_code_) {
+    case SOFT_RESET_FAILED:
+      ESP_LOGE(TAG, "  Soft Reset communication error");
+      break;
     case BOOT_STATE_FAILED:
       ESP_LOGE(TAG, "  Boot State communication error");
       break;
     case START_RANGING_FAILED:
       ESP_LOGE(TAG, "  Start ranging communication error");
+      break;
+    case INTERRUPT_POLARITY_FAILED:
+      ESP_LOGE(TAG, "  Interrupt Polarity communication error");
       break;
     case DATA_READY_FAILED:
       ESP_LOGE(TAG, "  Data ready communication error");
@@ -369,9 +406,15 @@ void VL53L1XComponent::dump_config() {
     case DISTANCE_MODE_FAILED:
       ESP_LOGE(TAG, "  Distance Mode communication error");
       break;
+    case GET_DISTANCE_FAILED:
+      ESP_LOGE(TAG, "  Reading Distance communication error");
+      break;
+    case GET_RANGE_STATUS_FAILED:
+      ESP_LOGE(TAG, "  Reading Range Status communication error");
+      break;  
     case NONE:
     default:
-      ESP_LOGD(TAG, "  Setup successful - all versions");
+      ESP_LOGD(TAG, "  Setup successful");
 
       // no errors so sensor must be VL53L1X or VL53L4CD
       if (this->sensor_id_ == 0xEACC) {
@@ -393,7 +436,6 @@ void VL53L1XComponent::dump_config() {
         }
       }
       ESP_LOGD(TAG, "  Timing Budget: %ims",TIMING_BUDGET);
-      ESP_LOGD(TAG, "  Intermediate Period: %ims",TIMING_BUDGET);
       
       LOG_I2C_DEVICE(this);
       LOG_UPDATE_INTERVAL(this);
@@ -409,49 +451,117 @@ void VL53L1XComponent::dump_config() {
 }
 
 void VL53L1XComponent::loop() {
-  if (this->running_update_ || this->is_failed() ) return;
+  bool is_dataready;
 
-  this->set_timeout(LOOP_TIME, [this]() { 
-    if (!this->check_for_dataready(&this->new_data_is_ready_)) {
-      this->error_code_ = DATA_READY_FAILED;
-      this->mark_failed();
-    }
-  });
+  // only run loop if not failed
+  if ( this->is_failed() ) return;
 
-  if (!this->new_data_is_ready_) return;
+  switch (this->state_) {
+    case SETUP_COMPLETE:
+      this->state_ = IDLE;
+      break;
 
-  // data ready now
-  if (!this->get_distance(&this->distance_)) return;
-  if (!this->clear_interrupt()) return;
-  if (!this->stop_ranging()) return;
-  if(!this->get_range_status()) return;
+    case IDLE:
+      // do nothing - waiting for ranging to started by VL53L1XComponent::update()  
+      break;
 
-  if (!this->start_ranging()) {
-    this->mark_failed();
-    return;
+    case RANGING_STARTED:
+      this->state_ = WAITING_FOR_RANGING;
+      this->set_timeout(this->time_to_wait_for_ranging_, [this]() { this->state_ = CHECK_DATA_READY; });
+      break;
+
+    case WAITING_FOR_RANGING:
+      // do nothing - waiting for 110% timing budget so ranging is complete
+      break;
+
+    case CHECK_DATA_READY:
+      if (!this->check_for_dataready(&is_dataready)) {
+        ESP_LOGW(TAG, "Error reading data ready");
+        //this->mark_failed();
+        this->state_ = IDLE;
+        break;
+      }
+
+      if (!is_dataready) {
+        this->data_ready_retries_ = this->data_ready_retries_ + 1;
+        if (this->data_ready_retries_ == MAX_DATAREADY_TRIES)  {
+          ESP_LOGW(TAG, "To many attempts waiting data ready");
+          this->state_ = IDLE;
+        }
+        break;
+      }
+
+      this->state_ = READ_AND_PUBLISH;
+      break;
+
+    case READ_AND_PUBLISH:
+      if (this->distance_sensor_ != nullptr) {
+        // read new distance
+        if ( !this->get_distance() ) {
+          //ESP_LOGW(TAG, "Error reading distance");
+          this->distance_sensor_->publish_state(NAN);
+          //this->status_set_warning();
+          this->state_ = IDLE;
+          break;
+        }
+
+        this->distance_sensor_->publish_state(this->distance_);
+      }
+  
+      if (this->range_status_sensor_ != nullptr) {
+        // read new range status
+        if ( !this->get_range_status() ) {
+          ESP_LOGW(TAG, "Error reading range status");
+          this->range_status_sensor_->publish_state(NAN);
+          this->status_set_warning();
+          this->state_ = IDLE;
+          break;
+        }
+        
+        this->range_status_sensor_->publish_state(this->range_status_);
+      }
+
+      if (this->status_has_warning()) this->status_clear_warning();  
+      this->state_ = IDLE;
+      break;
+      
   }
 }
 
 void VL53L1XComponent::update() {
-  this->running_update_ = true;
-  if ((this->distance_== 0) || (this->range_status_ == UNDEFINED)) {
-    ESP_LOGV(TAG, "No Range data yet !");
-    this->running_update_ = false;
+  
+  if (this->state_ != IDLE) {
+    ESP_LOGD(TAG, "Too soon to start new ranging");
     return;
   }
 
-  if (this->distance_sensor_ != nullptr)
-    this->distance_sensor_->publish_state(this->distance_);
-  if (this->range_status_sensor_ != nullptr)
-    this->range_status_sensor_->publish_state(this->range_status_);
+  if (this->data_ready_retries_ > 0) {
+    ESP_LOGD(TAG, "Data ready retries = %i", this->data_ready_retries_);
+    this->data_ready_retries_ = 0;
+  }
 
-  this->running_update_ = false;
+  if (this->count_of_fails_ > 0) {
+    this->fail_count_sensor_->publish_state(this->count_of_fails_);
+    ESP_LOGD(TAG, "Data ready interrupt priority read fails = %i", this->count_of_fails_);
+    this->count_of_fails_ = 0;
+  }
+  
+  if ( !this->start_oneshot_ranging() ) {
+    ESP_LOGE(TAG, "Error starting ranging");
+    this->error_code_ = START_RANGING_FAILED;
+    this->mark_failed();
+    return;
+  }
+  
+  this->state_ = RANGING_STARTED;
 }
 
 bool VL53L1XComponent::clear_interrupt() {
   if (!this->vl53l1x_write_byte(SYSTEM__INTERRUPT_CLEAR, 0x01)) {
-    ESP_LOGW(TAG, "Error writing Clear Interrupt");
-    this->status_set_warning();
+    //ESP_LOGW(TAG, "Error writing Clear Interrupt");
+    //this->status_set_warning();
+    this->error_code_ = CLEAR_INTERRUPT_FAILED;
+    this->mark_failed();
     return false;
   }
   return true;
@@ -464,6 +574,20 @@ bool VL53L1XComponent::start_ranging() {
   if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x40)) {
     ESP_LOGW(TAG, "Error writing Start Ranging");
     this->status_set_warning();
+    return false;
+  }
+  return true;
+}
+
+bool VL53L1XComponent::start_oneshot_ranging() {
+  // first clear interrupt 
+  if (!clear_interrupt()) return false;
+
+  if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x10)) {
+    //ESP_LOGW(TAG, "Error writing Start Oneshot Ranging");
+    //this->status_set_warning();
+    this->error_code_ = START_RANGING_FAILED;
+    this->mark_failed();
     return false;
   }
   return true;
@@ -484,16 +608,25 @@ bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
   uint8_t int_polarity;
 
   if (!this->vl53l1x_read_byte(GPIO_HV_MUX__CTRL, &ctl)) {
-    ESP_LOGW(TAG, "Error reading Interrupt Polarity");
-    this->status_set_warning();
+    //ESP_LOGW(TAG, "Error reading Interrupt Polarity");
+    //this->status_set_warning();
+    this->count_of_fails_ = this->count_of_fails_ + 1;
+    if (this->count_of_fails_ == 5) {
+      this->error_code_ = INTERRUPT_POLARITY_FAILED;
+      this->mark_failed();
+    }
+    *is_dataready = false;
     return false;
   }
   ctl = ctl & 0x10;
   int_polarity = !(ctl >> 4);
 
   if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &status)) {
-    ESP_LOGW(TAG, "Error reading Data Ready");
-    this->status_set_warning();
+    //ESP_LOGW(TAG, "Error reading Data Ready");
+    //this->status_set_warning();
+    this->error_code_ = CLEAR_INTERRUPT_FAILED;
+    this->mark_failed();
+    *is_dataready = false;
     return false;
   }
   *is_dataready =((status & 1) == int_polarity);
@@ -743,11 +876,12 @@ bool VL53L1XComponent::get_intermeasurement_period(uint16_t *intermeasurement_ms
 
 
 
-bool VL53L1XComponent::get_distance(uint16_t *distance) {
-  if (!this->vl53l1x_read_byte_16(VL53L1_RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0,
-       distance)) {
-    ESP_LOGW(TAG, "Error reading Distance");
-    this->status_set_warning();
+bool VL53L1XComponent::get_distance() {
+  if (!this->vl53l1x_read_byte_16(VL53L1_RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0, &this->distance_)) {
+    //ESP_LOGW(TAG, "Error reading Distance");
+    this->error_code_ = GET_DISTANCE_FAILED;
+    this->mark_failed();
+    //this->status_set_warning();
     return false;
   }
   return true;
@@ -761,8 +895,10 @@ bool VL53L1XComponent::get_range_status() {
   uint8_t status;
 
   if (!this->vl53l1x_read_byte(VL53L1_RESULT__RANGE_STATUS, &status)) {
-    ESP_LOGW(TAG, "Error reading Range Status");
-    this->status_set_warning();
+    //ESP_LOGW(TAG, "Error reading Range Status");
+    this->error_code_ = GET_RANGE_STATUS_FAILED;
+    this->mark_failed();
+    //this->status_set_warning();
     return false;
   }
 
@@ -827,7 +963,12 @@ i2c::ErrorCode VL53L1XComponent::vl53l1x_read_register(uint16_t a_register, uint
 
   buffer[0] = (uint8_t)(a_register >> 8);
   buffer[1] = (uint8_t)(a_register & 0xFF);
-  error_code = this->write(buffer, 2, false);
+
+  uint8_t max_attempts = 5;
+	for (uint8_t i = 0; i < max_attempts; i++) {
+    error_code = this->write(buffer, 2, false);
+    if (error_code == i2c::ERROR_OK) break;
+  }
 
   if (error_code == i2c::ERROR_OK) {
     return this->read(data, len);
