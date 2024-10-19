@@ -27,11 +27,12 @@ external_components:
   - source: components
 ```
 The component supports sensors VL53L1X (up to 4000mm range) and VL53L4CD (up to 1300mm range) with default i2c address of 0x29.<BR>
-Timing budget (measurement period) is set internally at 500ms. Ranging occurs continuously every 500ms, but measurements are published at the specified update interval. **Note: update interval should be greater or equal to 1 second.**<BR>
+**Note: I2C should be configured with timeout: 1ms and frequency: 200kHz - see example YAML below**.<BR>
+Timing budget (measurement period) is set internally at 500ms. Ranging occurs about every 500ms, but measurements are published at the specified update interval. **Note: update interval should be greater or equal to 1 second.**<BR>
 
 The sensor configuration of VL53L1x platform allows defining the sensor distance mode:<BR>
 ***distance_mode:*** which can be either ***short*** or ***long*** with default ***long***<BR>
-**Note: the VL53L4CD sensor can only have distance_mode: short, if VL53L4CD is detected then distance mode is forced to ***short***.**<BR>
+**Note: the VL53L4CD sensor can only have distance_mode: short, if VL53L4CD is detected then distance mode is changed to ***short***.**<BR>
 
 Two sensors can be configured ***distance:*** and ***range_status:***<BR>
 Distance has units mm while range status gives the status code of the distance measurement.<BR>
@@ -65,8 +66,10 @@ i2c:
   - id: bus_a 
     sda: 21
     scl: 22
+    frequency: 200kHz
+    timeout: 1ms
     scan: true
-
+    
 sensor:
   - platform: vl53l1x
     distance_mode: long
