@@ -541,7 +541,9 @@ void VL53L1XComponent::update() {
   }
 
   if (this->count_of_fails_ > 0) {
-    this->fail_count_sensor_->publish_state(this->count_of_fails_);
+    if (this->fail_count_sensor_ != nullptr) {
+      this->fail_count_sensor_->publish_state(this->count_of_fails_);
+    }
     ESP_LOGD(TAG, "Data ready interrupt priority read fails = %i", this->count_of_fails_);
     this->count_of_fails_ = 0;
   }
