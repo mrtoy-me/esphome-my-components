@@ -15,7 +15,7 @@ DEPENDENCIES = ["i2c"]
 vl53l1x_ns = cg.esphome_ns.namespace("vl53l1x")
 
 VL53L1XComponent = vl53l1x_ns.class_(
-    "VL53L1XComponent", cg.PollingComponent, i2c.I2CDevice, sensor.Sensor
+    "VL53L1XComponent", cg.PollingComponent, i2c.I2CDevice
 )
 DistanceMode = vl53l1x_ns.enum("DistanceMode")
 
@@ -26,9 +26,8 @@ DISTANCE_MODES = {
 
 CONF_DISTANCE_MODE = "distance_mode"
 CONF_RANGE_STATUS = "range_status"
-CONF_FAIL_COUNT = "fail_count"
 
-CONFIG_SCHEMA = (
+CONFIG_SCHEMA = cv.All(
     cv.Schema(   
         {
             cv.GenerateID(): cv.declare_id(VL53L1XComponent),
@@ -45,13 +44,10 @@ CONFIG_SCHEMA = (
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-            cv.Optional(CONF_FAIL_COUNT): sensor.sensor_schema(
-                accuracy_decimals=0,
-                state_class=STATE_CLASS_MEASUREMENT,
-            ),
         }
-    ).extend(cv.polling_component_schema("60s"))
-     .extend(i2c.i2c_device_schema(0x29))
+    )
+    .extend(cv.polling_component_schema("60s"))
+    .extend(i2c.i2c_device_schema(0x29))
 )
 
 async def to_code(config):
@@ -66,10 +62,6 @@ async def to_code(config):
     if CONF_RANGE_STATUS in config:
         sens = await sensor.new_sensor(config[CONF_RANGE_STATUS])    
         cg.add(var.set_range_status_sensor(sens))
-
-    if CONF_FAIL_COUNT in config:
-        sens = await sensor.new_sensor(config[CONF_FAIL_COUNT])    
-        cg.add(var.set_fail_count_sensor(sens))
 
     cg.add(var.config_distance_mode(config[CONF_DISTANCE_MODE]))
     

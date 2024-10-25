@@ -116,7 +116,7 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
   0x00, /* 0x2d : set bit 2 and 5 to 1 for fast plus mode (1MHz I2C), else don't touch */
   0x01, /* 0x2e : bit 0 if I2C pulled up at 1.8V, else set bit 0 to 1 (pull up at AVDD) */
   0x01, /* 0x2f : bit 0 if GPIO pulled up at 1.8V, else set bit 0 to 1 (pull up at AVDD) */
-  0x01, /* 0x30 : set bit 4 to 0 for active high interrupt and 1 for active low (bits 3:0 must be 0x1), use SetInterruptPolarity() */
+  0x11, /* 0x30 : set bit 4 to 0 for active high interrupt and 1 for active low (bits 3:0 must be 0x1), use SetInterruptPolarity() */
   0x02, /* 0x31 : bit 1 = interrupt depending on the polarity, use CheckForDataReady() */
   0x00, /* 0x32 : not user-modifiable */
   0x02, /* 0x33 : not user-modifiable */
@@ -266,7 +266,7 @@ void VL53L1XComponent::setup() {
   }
   
   if (!this->vl53l1x_read_byte_16(VL53L1_IDENTIFICATION__MODEL_ID, &this->sensor_id_)) {
-    this->error_code_ = COMMUNICATION_FAILED;
+    this->error_code_ = READ_CHIP_ID_FAILED;
     this->mark_failed();
     return;
   }
@@ -285,11 +285,7 @@ void VL53L1XComponent::setup() {
   }
 
   // kick off initialisation by starting ranging
-  if (!this->start_ranging()) {
-    this->error_code_ = START_RANGING_FAILED;
-    this->mark_failed();
-    return;
-  }
+  if (!this->start_ranging()) return;
   
   bool is_dataready;
   start_time = millis();
@@ -297,11 +293,7 @@ void VL53L1XComponent::setup() {
   while (elapsed_time < INIT_TIMEOUT ) {
     // ranging started now wait for data ready
     if ((elapsed_time % 2) == 0) {
-      if (!this->check_for_dataready(&is_dataready)) {
-        this->error_code_ = DATA_READY_FAILED;
-        this->mark_failed();
-        return;
-      }
+      if (!this->check_for_dataready(&is_dataready)) return;
       if (is_dataready) break;
     }
     elapsed_time = millis() - start_time;
@@ -313,27 +305,19 @@ void VL53L1XComponent::setup() {
     return;
   }
 
-  if (!this->clear_interrupt()) {
-    this->error_code_ = CLEAR_INTERRUPT_FAILED;
-    this->mark_failed();
-    return;
-  }
+  if (!this->clear_interrupt()) return;
 
-  if (!this->stop_ranging()) {
-    this->error_code_ = STOP_RANGING_FAILED;
-    this->mark_failed();
-    return;
-  }
-
+  if (!this->stop_ranging()) return;
+  
   if (!this->write_byte(VL53L1_VHV_CONFIG__TIMEOUT_MACROP_LOOP_BOUND, 0x09)) {
     ESP_LOGW(TAG, "Error writing Config Timeout Macro");
-    this->error_code_ = COMMUNICATION_FAILED;
+    this->error_code_ = CONFIGURATION_FAILED;
     this->mark_failed();
     return;
   }
   if (!this->write_byte(VL53L1_START_VHV_FROM_PREVIOUS_TEMPERATURE, 0x00))  {
     ESP_LOGW(TAG, "Error writing Start VHV from the Previous Temperature");
-    this->error_code_ = COMMUNICATION_FAILED;
+    this->error_code_ = CONFIGURATION_FAILED;
     this->mark_failed();
     return;
   }
@@ -355,7 +339,7 @@ void VL53L1XComponent::setup() {
     this->mark_failed();
     return;
   }
-  this->fail_count_sensor_->publish_state(this->count_of_fails_);
+  
   this->state_ = SETUP_COMPLETE;
   this->time_to_wait_for_ranging_ = TIMING_BUDGET;
 }
@@ -365,28 +349,34 @@ void VL53L1XComponent::dump_config() {
 
   switch (this->error_code_) {
     case SOFT_RESET_FAILED:
-      ESP_LOGE(TAG, "  Soft Reset communication error");
+      ESP_LOGE(TAG, "  Soft Reset failed");
       break;
     case BOOT_STATE_FAILED:
-      ESP_LOGE(TAG, "  Boot State communication error");
+      ESP_LOGE(TAG, "  Reading Boot State failed");
       break;
-    case START_RANGING_FAILED:
-      ESP_LOGE(TAG, "  Start ranging communication error");
+    case START_CONTINUOUS_RANGING_FAILED:
+      ESP_LOGE(TAG, "  Start continuous ranging failed");
+      break;
+    case START_ONESHOT_RANGING_FAILED:
+      ESP_LOGE(TAG, "  Start oneshot ranging failed");
       break;
     case INTERRUPT_POLARITY_FAILED:
-      ESP_LOGE(TAG, "  Interrupt Polarity communication error");
+      ESP_LOGE(TAG, "  Reading Interrupt Polarity failed");
       break;
     case DATA_READY_FAILED:
-      ESP_LOGE(TAG, "  Data ready communication error");
+      ESP_LOGE(TAG, "  Reading Data ready failed");
       break;
     case CLEAR_INTERRUPT_FAILED:
-      ESP_LOGE(TAG, "  Clear interrupt communication error");
+      ESP_LOGE(TAG, "  Clear interrupt failed");
       break;
     case STOP_RANGING_FAILED:
-      ESP_LOGE(TAG, "  Stop ranging communication error");
+      ESP_LOGE(TAG, "  Stop ranging failed");
       break;      
-    case COMMUNICATION_FAILED:
-      ESP_LOGE(TAG, "  Sensor communication failed");
+    case CONFIGURATION_FAILED:
+      ESP_LOGE(TAG, "  Writing Sensor configuration failed");
+      break; 
+    case READ_CHIP_ID_FAILED:
+      ESP_LOGE(TAG, "  Read sensor ID failed");
       break;
     case WRONG_CHIP_ID:
       ESP_LOGE(TAG, "  Sensor does not have VL53L1X or VL53L4CD sensor ID !");
@@ -398,20 +388,23 @@ void VL53L1XComponent::dump_config() {
       ESP_LOGE(TAG, "  Timeout on waiting for data ready");
       break;
     case TIMING_BUDGET_FAILED:
-      ESP_LOGE(TAG, "  Timing budget communication error");
+      ESP_LOGE(TAG, "  Setting Timing budget failed");
       break;
     case INTERM_PERIOD_FAILED:
-      ESP_LOGE(TAG, "  Intermediate Period communication error");
+      ESP_LOGE(TAG, "  Setting Intermediate Period failed");
       break;
     case DISTANCE_MODE_FAILED:
-      ESP_LOGE(TAG, "  Distance Mode communication error");
+      ESP_LOGE(TAG, "  Setting Distance Mode failed");
+      break;
+    case TOO_MANY_DATA_READY_ATTEMPTS:
+      ESP_LOGE(TAG, "  To many attempts waiting data ready");
       break;
     case GET_DISTANCE_FAILED:
-      ESP_LOGE(TAG, "  Reading Distance communication error");
+      ESP_LOGE(TAG, "  Reading Distance failed");
       break;
     case GET_RANGE_STATUS_FAILED:
-      ESP_LOGE(TAG, "  Reading Range Status communication error");
-      break;  
+      ESP_LOGE(TAG, "  Reading Range Status failed");
+      break;
     case NONE:
     default:
       ESP_LOGD(TAG, "  Setup successful");
@@ -457,6 +450,7 @@ void VL53L1XComponent::loop() {
   if ( this->is_failed() ) return;
 
   switch (this->state_) {
+    case STARTING_UP:
     case SETUP_COMPLETE:
       this->state_ = IDLE;
       break;
@@ -471,13 +465,11 @@ void VL53L1XComponent::loop() {
       break;
 
     case WAITING_FOR_RANGING:
-      // do nothing - waiting for 110% timing budget so ranging is complete
+      // do nothing 
       break;
 
     case CHECK_DATA_READY:
       if (!this->check_for_dataready(&is_dataready)) {
-        ESP_LOGW(TAG, "Error reading data ready");
-        //this->mark_failed();
         this->state_ = IDLE;
         break;
       }
@@ -485,7 +477,9 @@ void VL53L1XComponent::loop() {
       if (!is_dataready) {
         this->data_ready_retries_ = this->data_ready_retries_ + 1;
         if (this->data_ready_retries_ == MAX_DATAREADY_TRIES)  {
-          ESP_LOGW(TAG, "To many attempts waiting data ready");
+          ESP_LOGE(TAG, "To many attempts waiting data ready");
+          this->error_code_ = TOO_MANY_DATA_READY_ATTEMPTS;
+          this->mark_failed();
           this->state_ = IDLE;
         }
         break;
@@ -498,9 +492,7 @@ void VL53L1XComponent::loop() {
       if (this->distance_sensor_ != nullptr) {
         // read new distance
         if ( !this->get_distance() ) {
-          //ESP_LOGW(TAG, "Error reading distance");
-          this->distance_sensor_->publish_state(NAN);
-          //this->status_set_warning();
+          //this->distance_sensor_->publish_state(NAN);
           this->state_ = IDLE;
           break;
         }
@@ -511,17 +503,14 @@ void VL53L1XComponent::loop() {
       if (this->range_status_sensor_ != nullptr) {
         // read new range status
         if ( !this->get_range_status() ) {
-          ESP_LOGW(TAG, "Error reading range status");
-          this->range_status_sensor_->publish_state(NAN);
-          this->status_set_warning();
+          //this->range_status_sensor_->publish_state(NAN);
           this->state_ = IDLE;
           break;
         }
         
         this->range_status_sensor_->publish_state(this->range_status_);
       }
-
-      if (this->status_has_warning()) this->status_clear_warning();  
+  
       this->state_ = IDLE;
       break;
       
@@ -529,7 +518,8 @@ void VL53L1XComponent::loop() {
 }
 
 void VL53L1XComponent::update() {
-  
+  if ( this->is_failed() ) return;
+
   if (this->state_ != IDLE) {
     ESP_LOGD(TAG, "Too soon to start new ranging");
     return;
@@ -539,27 +529,15 @@ void VL53L1XComponent::update() {
     ESP_LOGD(TAG, "Data ready retries = %i", this->data_ready_retries_);
     this->data_ready_retries_ = 0;
   }
-
-  if (this->count_of_fails_ > 0) {
-    this->fail_count_sensor_->publish_state(this->count_of_fails_);
-    ESP_LOGD(TAG, "Data ready interrupt priority read fails = %i", this->count_of_fails_);
-    this->count_of_fails_ = 0;
-  }
   
-  if ( !this->start_oneshot_ranging() ) {
-    ESP_LOGE(TAG, "Error starting ranging");
-    this->error_code_ = START_RANGING_FAILED;
-    this->mark_failed();
-    return;
-  }
+  if ( !this->start_oneshot_ranging() ) return;
   
   this->state_ = RANGING_STARTED;
 }
 
 bool VL53L1XComponent::clear_interrupt() {
   if (!this->vl53l1x_write_byte(SYSTEM__INTERRUPT_CLEAR, 0x01)) {
-    //ESP_LOGW(TAG, "Error writing Clear Interrupt");
-    //this->status_set_warning();
+    ESP_LOGE(TAG, "Error writing Clear Interrupt");
     this->error_code_ = CLEAR_INTERRUPT_FAILED;
     this->mark_failed();
     return false;
@@ -572,8 +550,9 @@ bool VL53L1XComponent::start_ranging() {
   if (!clear_interrupt()) return false;
 
   if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x40)) {
-    ESP_LOGW(TAG, "Error writing Start Ranging");
-    this->status_set_warning();
+    ESP_LOGE(TAG, "Error writing Start Continuous Ranging");
+    this->error_code_ = START_CONTINUOUS_RANGING_FAILED;
+    this->mark_failed();
     return false;
   }
   return true;
@@ -584,9 +563,8 @@ bool VL53L1XComponent::start_oneshot_ranging() {
   if (!clear_interrupt()) return false;
 
   if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x10)) {
-    //ESP_LOGW(TAG, "Error writing Start Oneshot Ranging");
-    //this->status_set_warning();
-    this->error_code_ = START_RANGING_FAILED;
+    ESP_LOGE(TAG, "Error writing Start Oneshot Ranging");
+    this->error_code_ = START_ONESHOT_RANGING_FAILED;
     this->mark_failed();
     return false;
   }
@@ -596,40 +574,37 @@ bool VL53L1XComponent::start_oneshot_ranging() {
 bool VL53L1XComponent::stop_ranging() {
   // disable VL53L1X 
   if (!this->vl53l1x_write_byte(SYSTEM__MODE_START, 0x00)) {
-    ESP_LOGW(TAG, "Error writing Start Ranging");
-    this->status_set_warning();
+    ESP_LOGE(TAG, "Error writing Start Ranging");
+    this->error_code_ = STOP_RANGING_FAILED;
+    this->mark_failed();
     return false;
   }
   return true;
 }
 
 bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
-  uint8_t ctl, status;
-  uint8_t int_polarity;
+  uint8_t status;
 
-  if (!this->vl53l1x_read_byte(GPIO_HV_MUX__CTRL, &ctl)) {
-    //ESP_LOGW(TAG, "Error reading Interrupt Polarity");
-    //this->status_set_warning();
-    this->count_of_fails_ = this->count_of_fails_ + 1;
-    if (this->count_of_fails_ == 5) {
-      this->error_code_ = INTERRUPT_POLARITY_FAILED;
-      this->mark_failed();
-    }
-    *is_dataready = false;
-    return false;
-  }
-  ctl = ctl & 0x10;
-  int_polarity = !(ctl >> 4);
-
+  //uint8_t ctl, int_polarity;
+  // if (!this->vl53l1x_read_byte(GPIO_HV_MUX__CTRL, &ctl)) {
+  //   this->error_code_ = INTERRUPT_POLARITY_FAILED;
+  //   this->mark_failed();
+  //   *is_dataready = false;
+  //   return false;
+  // }
+  // ctl = ctl & 0x10;
+  // int_polarity = !(ctl >> 4);
+  
   if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &status)) {
-    //ESP_LOGW(TAG, "Error reading Data Ready");
-    //this->status_set_warning();
-    this->error_code_ = CLEAR_INTERRUPT_FAILED;
+    ESP_LOGE(TAG, "Error reading data ready");
+    this->error_code_ = DATA_READY_FAILED;
     this->mark_failed();
     *is_dataready = false;
     return false;
   }
-  *is_dataready =((status & 1) == int_polarity);
+
+  // assumes interrupt is active low (GPIO_HV_MUX__CTRL bit 4 is 1)
+  *is_dataready =((status & 0x01) == 0);
   return true;
 }
 
@@ -926,19 +901,8 @@ bool VL53L1XComponent::get_range_status() {
   return true;
 }
 
-i2c::ErrorCode VL53L1XComponent::vl53l1x_write_register(uint16_t a_register, const uint8_t *data, size_t len) {
-  uint8_t new_len = len+2;
-  uint8_t buffer[new_len];
-  buffer[0] = (uint8_t)(a_register >> 8);
-  buffer[1] = (uint8_t)(a_register & 0xFF);
-  for (uint8_t i = 0; i < len; i++) {
-    buffer[i + 2] = data[i];
-  }
-  return this->write(buffer, new_len, true);
-}
-
 bool VL53L1XComponent::vl53l1x_write_bytes(uint16_t a_register, const uint8_t *data, uint8_t len) {
-    return this->vl53l1x_write_register(a_register, data, len) == i2c::ERROR_OK;
+    return this->write_register16(a_register, data, len, true) == i2c::ERROR_OK;
 }
 
 bool VL53L1XComponent::vl53l1x_write_bytes_16(uint8_t a_register, const uint16_t *data, uint8_t len) {
@@ -946,7 +910,7 @@ bool VL53L1XComponent::vl53l1x_write_bytes_16(uint8_t a_register, const uint16_t
   std::unique_ptr<uint16_t[]> temp{new uint16_t[len]};
   for (size_t i = 0; i < len; i++)
     temp[i] = i2c::htoi2cs(data[i]);
-  return (this->vl53l1x_write_register(a_register, reinterpret_cast<const uint8_t *>(temp.get()), len * 2) == i2c::ERROR_OK);
+  return (this->write_register16(a_register, reinterpret_cast<const uint8_t *>(temp.get()), len * 2, true) == i2c::ERROR_OK);
 }
 
 bool VL53L1XComponent::vl53l1x_write_byte(uint16_t a_register, uint8_t data) {
@@ -957,35 +921,16 @@ bool VL53L1XComponent::vl53l1x_write_byte_16(uint16_t a_register, uint16_t data)
   return this->vl53l1x_write_bytes_16(a_register, &data, 1);
 }
 
-i2c::ErrorCode VL53L1XComponent::vl53l1x_read_register(uint16_t a_register, uint8_t *data, size_t len) {
-  i2c::ErrorCode error_code;
-  uint8_t buffer[2];
-
-  buffer[0] = (uint8_t)(a_register >> 8);
-  buffer[1] = (uint8_t)(a_register & 0xFF);
-
-  uint8_t max_attempts = 5;
-	for (uint8_t i = 0; i < max_attempts; i++) {
-    error_code = this->write(buffer, 2, false);
-    if (error_code == i2c::ERROR_OK) break;
-  }
-
-  if (error_code == i2c::ERROR_OK) {
-    return this->read(data, len);
-  }
-  return error_code;
-}
-
 bool VL53L1XComponent::vl53l1x_read_bytes(uint16_t a_register, uint8_t *data, uint8_t len) {
-    return this->vl53l1x_read_register(a_register, data, len) == i2c::ERROR_OK;
+    return this->read_register16(a_register, data, len, false) == i2c::ERROR_OK;
 }
 
 bool VL53L1XComponent::vl53l1x_read_byte(uint16_t a_register, uint8_t *data) {
-    return this->vl53l1x_read_register(a_register, data, 1) == i2c::ERROR_OK;
+    return this->read_register16(a_register, data, 1, false) == i2c::ERROR_OK;
 }
 
 bool VL53L1XComponent::vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len) {
-  if (this->vl53l1x_read_register(a_register, reinterpret_cast<uint8_t *>(data), len * 2) != i2c::ERROR_OK)
+  if (this->read_register16(a_register, reinterpret_cast<uint8_t *>(data), len * 2, false) != i2c::ERROR_OK)
     return false;
   for (size_t i = 0; i < len; i++)
     data[i] = i2c::i2ctohs(data[i]);
