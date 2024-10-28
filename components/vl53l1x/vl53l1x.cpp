@@ -476,6 +476,9 @@ void VL53L1XComponent::loop() {
 
       if (!is_dataready) {
         this->data_ready_retries_ = this->data_ready_retries_ + 1;
+        if (this->data_ready_retries_ > this->max_attempts_) {
+          this->max_attempts_ = this->data_ready_retries_;
+        }
         if (this->data_ready_retries_ == MAX_DATAREADY_TRIES)  {
           ESP_LOGE(TAG, "To many attempts waiting data ready");
           this->error_code_ = TOO_MANY_DATA_READY_ATTEMPTS;
@@ -510,7 +513,7 @@ void VL53L1XComponent::loop() {
         
         this->range_status_sensor_->publish_state(this->range_status_);
       }
-  
+
       this->state_ = IDLE;
       break;
       
@@ -523,6 +526,10 @@ void VL53L1XComponent::update() {
   if (this->state_ != IDLE) {
     ESP_LOGD(TAG, "Too soon to start new ranging");
     return;
+  }
+
+  if (this->max_attempts_sensor_ != nullptr) {
+    this->max_attempts_sensor_->publish_state(this->max_attempts_);
   }
 
   if (this->data_ready_retries_ > 0) {
