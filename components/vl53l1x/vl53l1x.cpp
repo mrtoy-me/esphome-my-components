@@ -476,9 +476,6 @@ void VL53L1XComponent::loop() {
 
       if (!is_dataready) {
         this->data_ready_retries_ = this->data_ready_retries_ + 1;
-        if (this->data_ready_retries_ > this->max_attempts_) {
-          this->max_attempts_ = this->data_ready_retries_;
-        }
         if (this->data_ready_retries_ == MAX_DATAREADY_TRIES)  {
           ESP_LOGE(TAG, "To many attempts waiting data ready");
           this->error_code_ = TOO_MANY_DATA_READY_ATTEMPTS;
@@ -937,8 +934,18 @@ bool VL53L1XComponent::vl53l1x_read_byte(uint16_t a_register, uint8_t *data) {
 }
 
 bool VL53L1XComponent::vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len) {
-  if (this->read_register16(a_register, reinterpret_cast<uint8_t *>(data), len * 2, false) != i2c::ERROR_OK)
-    return false;
+
+  uint8_t max_attempts = 10;
+	for (uint8_t i = 0; i < max_attempts; i++) {
+    error_code = this->read_register16(a_register, reinterpret_cast<uint8_t *>(data), len * 2, false);
+    if (error_code == i2c::ERROR_OK) break;
+    if (i > this->max_attempts_) {
+      this->max_attempts_ = i;
+    }
+  }
+
+  if (error_code != i2c::ERROR_OK) return false;
+
   for (size_t i = 0; i < len; i++)
     data[i] = i2c::i2ctohs(data[i]);
   return true;
