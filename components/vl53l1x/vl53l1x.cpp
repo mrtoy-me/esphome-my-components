@@ -934,7 +934,7 @@ bool VL53L1XComponent::vl53l1x_read_byte(uint16_t a_register, uint8_t *data) {
 }
 
 bool VL53L1XComponent::vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len) {
-
+  i2c::ErrorCode error_code;
   uint8_t max_attempts = 10;
 	for (uint8_t i = 0; i < max_attempts; i++) {
     error_code = this->read_register16(a_register, reinterpret_cast<uint8_t *>(data), len * 2, false);
