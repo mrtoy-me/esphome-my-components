@@ -27,6 +27,7 @@ DISTANCE_MODES = {
 CONF_DISTANCE_MODE = "distance_mode"
 CONF_RANGE_STATUS = "range_status"
 CONF_MAX_ATTEMPTS = "max_attempts"
+CONF_DATAREADY_TIMEOUTS = "dataready_timeouts"
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(   
@@ -46,6 +47,10 @@ CONFIG_SCHEMA = cv.All(
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
             cv.Optional(CONF_MAX_ATTEMPTS): sensor.sensor_schema(
+                accuracy_decimals=0,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_DATAREADY_TIMEOUTS): sensor.sensor_schema(
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
@@ -71,6 +76,10 @@ async def to_code(config):
     if CONF_MAX_ATTEMPTS in config:
         sens = await sensor.new_sensor(config[CONF_MAX_ATTEMPTS])    
         cg.add(var.set_max_attempts_sensor(sens))
+
+    if CONF_DATAREADY_TIMEOUTS in config:
+        sens = await sensor.new_sensor(config[CONF_DATAREADY_TIMEOUTS])    
+        cg.add(var.set_dataready_timeouts_sensor(sens))
 
     cg.add(var.config_distance_mode(config[CONF_DISTANCE_MODE]))
     

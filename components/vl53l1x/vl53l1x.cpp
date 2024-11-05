@@ -208,7 +208,7 @@ static const uint8_t VL51L1X_DEFAULT_CONFIGURATION[] = {
 
 static const uint16_t INIT_TIMEOUT        = 150;  // default timing budget = 100ms, so 150ms should be more than enough time
 static const uint16_t TIMING_BUDGET       = 500;
-static const uint16_t MAX_DATAREADY_TRIES = 4;
+static const uint16_t MAX_DATAREADY_TRIES = 5; // about 80ms after timing budget expired
 
 void VL53L1XComponent::setup() {
   uint32_t start_time, elapsed_time;
@@ -469,21 +469,26 @@ void VL53L1XComponent::loop() {
       break;
 
     case CHECK_DATA_READY:
-      if (!this->check_for_dataready(&is_dataready)) {
-        this->state_ = IDLE;
-        break;
-      }
+      //if (!this->check_for_dataready(&is_dataready)) {
+      //  this->state_ = IDLE;
+      //  break;
+      //}
 
+      this->check_for_dataready(&is_dataready);
       if (!is_dataready) {
         this->data_ready_retries_ = this->data_ready_retries_ + 1;
-        if (this->data_ready_retries_ == MAX_DATAREADY_TRIES)  {
-          ESP_LOGE(TAG, "To many attempts waiting data ready");
-          this->error_code_ = TOO_MANY_DATA_READY_ATTEMPTS;
-          this->mark_failed();
-          this->state_ = IDLE;
+        if (this->data_ready_retries_ < MAX_DATAREADY_TRIES) {
+          break;
         }
-        break;
+        // data will be ready by now, so go ahead with read and publish
+        this->number_dataready_timeouts_ = this->number_dataready_timeouts_ + 1;
+        ESP_LOGE(TAG, "To many attempts waiting data ready");
+          //this->error_code_ = TOO_MANY_DATA_READY_ATTEMPTS;
+          //this->mark_failed();
+          //this->state_ = IDLE;
       }
+
+      //  break;
 
       this->state_ = READ_AND_PUBLISH;
       break;
@@ -492,7 +497,7 @@ void VL53L1XComponent::loop() {
       if (this->distance_sensor_ != nullptr) {
         // read new distance
         if ( !this->get_distance() ) {
-          //this->distance_sensor_->publish_state(NAN);
+          this->distance_sensor_->publish_state(NAN);
           this->state_ = IDLE;
           break;
         }
@@ -503,7 +508,7 @@ void VL53L1XComponent::loop() {
       if (this->range_status_sensor_ != nullptr) {
         // read new range status
         if ( !this->get_range_status() ) {
-          //this->range_status_sensor_->publish_state(NAN);
+          this->range_status_sensor_->publish_state(NAN);
           this->state_ = IDLE;
           break;
         }
@@ -527,6 +532,10 @@ void VL53L1XComponent::update() {
 
   if (this->max_attempts_sensor_ != nullptr) {
     this->max_attempts_sensor_->publish_state(this->max_attempts_);
+  }
+
+  if (this->dataready_timeouts_sensor_ != nullptr) {
+    this->dataready_timeouts_sensor_->publish_state(this->number_dataready_timeouts_);
   }
 
   if (this->data_ready_retries_ > 0) {
@@ -601,8 +610,8 @@ bool VL53L1XComponent::check_for_dataready(bool *is_dataready) {
   
   if (!this->vl53l1x_read_byte(GPIO__TIO_HV_STATUS, &status)) {
     ESP_LOGE(TAG, "Error reading data ready");
-    this->error_code_ = DATA_READY_FAILED;
-    this->mark_failed();
+    //this->error_code_ = DATA_READY_FAILED;
+    //this->mark_failed();
     *is_dataready = false;
     return false;
   }
@@ -930,21 +939,23 @@ bool VL53L1XComponent::vl53l1x_read_bytes(uint16_t a_register, uint8_t *data, ui
 }
 
 bool VL53L1XComponent::vl53l1x_read_byte(uint16_t a_register, uint8_t *data) {
-    return this->read_register16(a_register, data, 1, false) == i2c::ERROR_OK;
-}
-
-bool VL53L1XComponent::vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len) {
   i2c::ErrorCode error_code;
   uint8_t max_attempts = 10;
 	for (uint8_t i = 0; i < max_attempts; i++) {
-    error_code = this->read_register16(a_register, reinterpret_cast<uint8_t *>(data), len * 2, false);
+    error_code = this->read_register16(a_register, data, 1, false);
     if (error_code == i2c::ERROR_OK) break;
     if (i > this->max_attempts_) {
       this->max_attempts_ = i;
     }
   }
 
-  if (error_code != i2c::ERROR_OK) return false;
+  return (error_code == i2c::ERROR_OK);
+}
+
+bool VL53L1XComponent::vl53l1x_read_bytes_16(uint16_t a_register, uint16_t *data, uint8_t len) {
+  if (this->read_register16(a_register, reinterpret_cast<uint8_t *>(data), len * 2, false) != i2c::ERROR_OK ) {
+    return false;
+  }
 
   for (size_t i = 0; i < len; i++)
     data[i] = i2c::i2ctohs(data[i]);
