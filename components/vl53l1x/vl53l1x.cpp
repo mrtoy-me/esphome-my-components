@@ -943,9 +943,11 @@ bool VL53L1XComponent::vl53l1x_read_byte(uint16_t a_register, uint8_t *data) {
   uint8_t max_attempts = 10;
 	for (uint8_t i = 0; i < max_attempts; i++) {
     error_code = this->read_register16(a_register, data, 1, false);
-    if (error_code == i2c::ERROR_OK) break;
-    if (i > this->max_attempts_) {
-      this->max_attempts_ = i;
+    if (error_code != i2c::ERROR_OK) {
+      if (i > this->max_attempts_) {
+        this->max_attempts_ = i;
+      }
+      break;
     }
   }
 
