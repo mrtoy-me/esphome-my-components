@@ -1,6 +1,6 @@
 ## THIS REPOSITORY IS DEPRECATED AND HAS BEEN REPLACED WITH 
-##https://github.com/mrtoy-me/esphome-vl53l1x
-## IT WILL BE REMOVED BY AUGIST 2025
+## https://github.com/mrtoy-me/esphome-vl53l1x
+## IT WILL BE REMOVED BY AUGUST 2025
 
 
 ## ESPHome component for VL53L1X and VL53L4CD
